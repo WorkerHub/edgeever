@@ -31,6 +31,7 @@ import {
   Folder,
   HardDrive,
   History,
+  Home,
   ImageIcon,
   Inbox,
   Italic,
@@ -43,7 +44,6 @@ import {
   Merge,
   Minus,
   MoreHorizontal,
-  PanelLeft,
   Pencil,
   Plus,
   Quote,
@@ -59,6 +59,7 @@ import {
   Tags,
   Trash2,
   Undo2,
+  UserRound,
   X,
 } from "lucide-react";
 import {
@@ -182,6 +183,8 @@ const WorkspaceApp = ({
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileNotebookPickerOpen, setMobileNotebookPickerOpen] = useState(false);
+  const [mobileSearchFocusToken, setMobileSearchFocusToken] = useState(0);
   const [search, setSearch] = useState("");
   const [syncSummary, setSyncSummary] = useState<SyncQueueSummary>(emptySyncQueueSummary);
   const [isOnline, setIsOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
@@ -496,119 +499,161 @@ const WorkspaceApp = ({
     });
   };
 
+  const handleSelectNotebook = (notebookId: string) => {
+    setMemoView("notebook");
+    setSelectedNotebookId(notebookId);
+    setSelectedMemoIds(new Set());
+    setMobileNotebookPickerOpen(false);
+    setActivePane("memos");
+  };
+
+  const handleMobileHome = () => {
+    if (memoView === "trash") {
+      setMemoView("notebook");
+    }
+
+    setSelectedMemoIds(new Set());
+    setActivePane("memos");
+  };
+
+  const handleMobileSearch = () => {
+    setActivePane("memos");
+    setMobileSearchFocusToken((value) => value + 1);
+  };
+
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-emerald-50 text-slate-950">
       <div className="min-w-0 flex-1">
-      <main className="grid h-[100dvh] min-h-0 lg:grid-cols-[260px_360px_minmax(0,1fr)]">
-        <aside
-          className={cn(
-            "min-h-0 border-r border-emerald-100 bg-white/90 lg:block",
-            activePane === "notebooks" ? "block" : "hidden"
-          )}
-        >
-          <NotebookPane
-            authRequired={authRequired}
-            user={user}
-            notebooks={notebooks}
-            selectedNotebookId={selectedNotebookId}
-            isLoading={notebooksQuery.isLoading}
-            onSelect={(notebookId) => {
-              setMemoView("notebook");
-              setSelectedNotebookId(notebookId);
-              setSelectedMemoIds(new Set());
-              setActivePane("memos");
-            }}
-            onCreateNotebook={handleCreateNotebook}
-            onRenameNotebook={handleRenameNotebook}
-            onDeleteNotebook={handleDeleteNotebook}
-            onMoveNotebook={handleMoveNotebook}
-            onBackToList={() => setActivePane("memos")}
-            onLogout={onLogout}
-            isLoggingOut={isLoggingOut}
-            imageCompressionEnabled={imageCompressionEnabled}
-            onImageCompressionChange={setImageCompressionEnabled}
-            syncSummary={syncSummary}
-            isOnline={isOnline}
-            isSyncingQueuedChanges={isSyncingQueuedChanges}
-            onSyncQueuedChanges={() => void runQueuedSync()}
-            onOpenAssets={() => setAssetsOpen(true)}
-            onOpenTags={() => setTagsOpen(true)}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onOpenTrash={() => {
-              setMemoView("trash");
-              setSelectedMemoIds(new Set());
-              setSelectedMemoId(null);
-              setActivePane("memos");
-            }}
-          />
-        </aside>
+        <main className="grid h-[100dvh] min-h-0 lg:grid-cols-[260px_360px_minmax(0,1fr)]">
+          <aside
+            className={cn(
+              "min-h-0 border-r border-emerald-100 bg-white/90 lg:block",
+              activePane === "notebooks" ? "block" : "hidden"
+            )}
+          >
+            <NotebookPane
+              authRequired={authRequired}
+              user={user}
+              notebooks={notebooks}
+              selectedNotebookId={selectedNotebookId}
+              isLoading={notebooksQuery.isLoading}
+              onSelect={(notebookId) => {
+                setMemoView("notebook");
+                setSelectedNotebookId(notebookId);
+                setSelectedMemoIds(new Set());
+                setActivePane("memos");
+              }}
+              onCreateNotebook={handleCreateNotebook}
+              onRenameNotebook={handleRenameNotebook}
+              onDeleteNotebook={handleDeleteNotebook}
+              onMoveNotebook={handleMoveNotebook}
+              onBackToList={() => setActivePane("memos")}
+              onLogout={onLogout}
+              isLoggingOut={isLoggingOut}
+              imageCompressionEnabled={imageCompressionEnabled}
+              onImageCompressionChange={setImageCompressionEnabled}
+              syncSummary={syncSummary}
+              isOnline={isOnline}
+              isSyncingQueuedChanges={isSyncingQueuedChanges}
+              onSyncQueuedChanges={() => void runQueuedSync()}
+              onOpenAssets={() => setAssetsOpen(true)}
+              onOpenTags={() => setTagsOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenTrash={() => {
+                setMemoView("trash");
+                setSelectedMemoIds(new Set());
+                setSelectedMemoId(null);
+                setActivePane("memos");
+              }}
+            />
+          </aside>
 
-        <section
-          className={cn(
-            "min-h-0 border-r border-emerald-100 bg-emerald-50/80 lg:block",
-            activePane === "memos" ? "block" : "hidden"
-          )}
-        >
-          <MemoListPane
-            notebook={selectedNotebook}
-            notebooks={notebooks}
-            view={memoView}
-            memos={memos}
-            selectedMemoId={selectedMemoId}
-            selectedMemoIds={selectedMemoIds}
-            search={search}
-            isLoading={memosQuery.isLoading}
-            isCreating={createMemoMutation.isPending}
-            isMerging={mergeMutation.isPending}
-            isMoving={moveMemosMutation.isPending}
-            multiSelectKeyDown={multiSelectKeyDown}
-            onBackToNotebooks={() => setActivePane("notebooks")}
-            onSearch={setSearch}
-            onCreateMemo={handleCreateMemo}
-            onOpenMemo={(memoId) => {
-              setSelectedMemoId(memoId);
-              setActivePane("editor");
-            }}
-            onToggleMemo={(memoId) => {
-              setSelectedMemoIds((current) => toggleMemoSelection(current, memoId));
-            }}
-            onMerge={handleMerge}
-            onMoveSelectedMemos={handleMoveSelectedMemos}
-          />
-        </section>
+          <section
+            className={cn(
+              "min-h-0 border-r border-emerald-100 bg-emerald-50/80 lg:block",
+              activePane === "memos" ? "block" : "hidden"
+            )}
+          >
+            <MemoListPane
+              notebook={selectedNotebook}
+              notebooks={notebooks}
+              view={memoView}
+              memos={memos}
+              selectedMemoId={selectedMemoId}
+              selectedMemoIds={selectedMemoIds}
+              search={search}
+              searchFocusToken={mobileSearchFocusToken}
+              isLoading={memosQuery.isLoading}
+              isCreating={createMemoMutation.isPending}
+              isMerging={mergeMutation.isPending}
+              isMoving={moveMemosMutation.isPending}
+              multiSelectKeyDown={multiSelectKeyDown}
+              onOpenNotebookPicker={() => setMobileNotebookPickerOpen(true)}
+              onSearch={setSearch}
+              onCreateMemo={handleCreateMemo}
+              onOpenMemo={(memoId) => {
+                setSelectedMemoId(memoId);
+                setActivePane("editor");
+              }}
+              onToggleMemo={(memoId) => {
+                setSelectedMemoIds((current) => toggleMemoSelection(current, memoId));
+              }}
+              onMerge={handleMerge}
+              onMoveSelectedMemos={handleMoveSelectedMemos}
+            />
+          </section>
 
-        <section className={cn("min-h-0 min-w-0 bg-white lg:block", activePane === "editor" ? "block" : "hidden")}>
-          <EditorPane
-            memo={selectedMemo}
-            isTrashView={memoView === "trash"}
-            notebooks={notebooks}
-            isLoading={memoQuery.isLoading}
-            imageCompressionEnabled={imageCompressionEnabled}
-            onBackToList={() => setActivePane("memos")}
-            onSaved={async (memo) => {
-              queryClient.setQueryData(["memo", memo.id], { memo });
-              await queryClient.invalidateQueries({ queryKey: ["memos"] });
-            }}
-            onDeleted={async (memoId) => {
-              await deleteMemoMutation.mutateAsync({ memoId });
-              setSelectedMemoId(null);
-              setActivePane("memos");
-            }}
-            onPermanentDeleted={async (memoId) => {
-              await deleteMemoMutation.mutateAsync({ memoId, permanent: true });
-              setSelectedMemoId(null);
-              setActivePane("memos");
-            }}
-            onRestored={async (memoId) => {
-              await restoreMemoMutation.mutateAsync(memoId);
-            }}
-          />
-        </section>
-      </main>
+          <section className={cn("min-h-0 min-w-0 bg-white lg:block", activePane === "editor" ? "block" : "hidden")}>
+            <EditorPane
+              memo={selectedMemo}
+              isTrashView={memoView === "trash"}
+              notebooks={notebooks}
+              isLoading={memoQuery.isLoading}
+              imageCompressionEnabled={imageCompressionEnabled}
+              onBackToList={() => setActivePane("memos")}
+              onSaved={async (memo) => {
+                queryClient.setQueryData(["memo", memo.id], { memo });
+                await queryClient.invalidateQueries({ queryKey: ["memos"] });
+              }}
+              onDeleted={async (memoId) => {
+                await deleteMemoMutation.mutateAsync({ memoId });
+                setSelectedMemoId(null);
+                setActivePane("memos");
+              }}
+              onPermanentDeleted={async (memoId) => {
+                await deleteMemoMutation.mutateAsync({ memoId, permanent: true });
+                setSelectedMemoId(null);
+                setActivePane("memos");
+              }}
+              onRestored={async (memoId) => {
+                await restoreMemoMutation.mutateAsync(memoId);
+              }}
+            />
+          </section>
+        </main>
       </div>
       {assetsOpen ? <AssetsDialog onClose={() => setAssetsOpen(false)} /> : null}
       {tagsOpen ? <TagsDialog onClose={() => setTagsOpen(false)} /> : null}
       {settingsOpen ? <SettingsDialog onClose={() => setSettingsOpen(false)} /> : null}
+      {activePane !== "editor" ? (
+        <MobileBottomNav
+          canCreateMemo={Boolean(selectedNotebookId && memoView !== "trash")}
+          isCreating={createMemoMutation.isPending}
+          onCreateMemo={handleCreateMemo}
+          onHome={handleMobileHome}
+          onOpenAssets={() => setAssetsOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onSearch={handleMobileSearch}
+        />
+      ) : null}
+      {mobileNotebookPickerOpen ? (
+        <MobileNotebookPicker
+          notebooks={notebooks}
+          selectedNotebookId={selectedNotebookId}
+          onClose={() => setMobileNotebookPickerOpen(false)}
+          onSelect={handleSelectNotebook}
+        />
+      ) : null}
     </div>
   );
 };
@@ -970,6 +1015,153 @@ const getSyncStatusLabel = (summary: SyncQueueSummary, isOnline: boolean, isSync
   return "已同步";
 };
 
+const MobileBottomNav = ({
+  canCreateMemo,
+  isCreating,
+  onCreateMemo,
+  onHome,
+  onOpenAssets,
+  onOpenSettings,
+  onSearch,
+}: {
+  canCreateMemo: boolean;
+  isCreating: boolean;
+  onCreateMemo: () => void;
+  onHome: () => void;
+  onOpenAssets: () => void;
+  onOpenSettings: () => void;
+  onSearch: () => void;
+}) => (
+  <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-emerald-100 bg-white/95 px-5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+    <div className="grid h-16 grid-cols-5 items-center">
+      <MobileBottomNavButton active icon={<Home className="h-5 w-5" />} label="首页" onClick={onHome} />
+      <MobileBottomNavButton icon={<Search className="h-5 w-5" />} label="搜索" onClick={onSearch} />
+      <div className="flex justify-center">
+        <button
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-[0_10px_22px_rgba(5,150,105,0.28)] transition hover:bg-emerald-700 disabled:opacity-50"
+          type="button"
+          title="新建笔记"
+          disabled={!canCreateMemo || isCreating}
+          onClick={onCreateMemo}
+        >
+          <Plus className="h-8 w-8" />
+        </button>
+      </div>
+      <MobileBottomNavButton icon={<Archive className="h-5 w-5" />} label="附件" onClick={onOpenAssets} />
+      <MobileBottomNavButton icon={<UserRound className="h-5 w-5" />} label="我的" onClick={onOpenSettings} />
+    </div>
+  </nav>
+);
+
+const MobileBottomNavButton = ({
+  active = false,
+  icon,
+  label,
+  onClick,
+}: {
+  active?: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    className={cn(
+      "flex h-14 flex-col items-center justify-center gap-1 rounded-md text-xs font-medium transition",
+      active ? "text-emerald-600" : "text-slate-500 hover:bg-emerald-50 hover:text-emerald-700"
+    )}
+    type="button"
+    onClick={onClick}
+  >
+    {icon}
+    <span>{label}</span>
+  </button>
+);
+
+const MobileNotebookPicker = ({
+  notebooks,
+  selectedNotebookId,
+  onClose,
+  onSelect,
+}: {
+  notebooks: Notebook[];
+  selectedNotebookId: string | null;
+  onClose: () => void;
+  onSelect: (notebookId: string) => void;
+}) => {
+  const tree = useMemo(() => buildNotebookTree(notebooks), [notebooks]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/25 px-3 pt-[calc(4.5rem+env(safe-area-inset-top))] lg:hidden" onClick={onClose}>
+      <section
+        className="max-h-[64dvh] overflow-hidden rounded-md border border-emerald-100 bg-white shadow-panel"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex h-12 items-center justify-between border-b border-emerald-100 px-4">
+          <div className="text-sm font-semibold text-slate-950">切换笔记本</div>
+          <Button size="icon" variant="ghost" title="关闭" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </header>
+        <div className="max-h-[calc(64dvh-3rem)] overflow-y-auto p-2">
+          {tree.map((node) => (
+            <MobileNotebookPickerItem
+              key={node.id}
+              node={node}
+              depth={0}
+              selectedNotebookId={selectedNotebookId}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const MobileNotebookPickerItem = ({
+  node,
+  depth,
+  selectedNotebookId,
+  onSelect,
+}: {
+  node: NotebookNode;
+  depth: number;
+  selectedNotebookId: string | null;
+  onSelect: (notebookId: string) => void;
+}) => {
+  const selected = node.id === selectedNotebookId;
+
+  return (
+    <div>
+      <button
+        className={cn(
+          "flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm transition",
+          selected ? "bg-emerald-100 font-semibold text-emerald-950" : "text-slate-700 hover:bg-emerald-50"
+        )}
+        style={{ paddingLeft: `${12 + depth * 18}px` }}
+        type="button"
+        onClick={() => onSelect(node.id)}
+      >
+        {node.slug === "inbox" ? <Inbox className="h-4 w-4 shrink-0" /> : <Folder className="h-4 w-4 shrink-0" />}
+        <span className="min-w-0 flex-1 truncate">{node.name}</span>
+      </button>
+      {node.children.length > 0 ? (
+        <div className="mt-1">
+          {node.children.map((child) => (
+            <MobileNotebookPickerItem
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              selectedNotebookId={selectedNotebookId}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const NotebookTreeItem = ({
   node,
   depth,
@@ -1121,12 +1313,13 @@ const MemoListPane = ({
   selectedMemoId,
   selectedMemoIds,
   search,
+  searchFocusToken,
   isLoading,
   isCreating,
   isMerging,
   isMoving,
   multiSelectKeyDown,
-  onBackToNotebooks,
+  onOpenNotebookPicker,
   onSearch,
   onCreateMemo,
   onOpenMemo,
@@ -1141,12 +1334,13 @@ const MemoListPane = ({
   selectedMemoId: string | null;
   selectedMemoIds: Set<string>;
   search: string;
+  searchFocusToken: number;
   isLoading: boolean;
   isCreating: boolean;
   isMerging: boolean;
   isMoving: boolean;
   multiSelectKeyDown: boolean;
-  onBackToNotebooks: () => void;
+  onOpenNotebookPicker: () => void;
   onSearch: (value: string) => void;
   onCreateMemo: () => void;
   onOpenMemo: (memoId: string) => void;
@@ -1156,6 +1350,7 @@ const MemoListPane = ({
 }) => {
   const [moveTargetNotebookId, setMoveTargetNotebookId] = useState(notebook?.id ?? notebooks[0]?.id ?? "");
   const memoGroups = useMemo(() => groupMemosByMonth(memos), [memos]);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (notebook?.id) {
@@ -1163,16 +1358,32 @@ const MemoListPane = ({
     }
   }, [notebook?.id]);
 
+  useEffect(() => {
+    if (searchFocusToken === 0) {
+      return;
+    }
+
+    searchInputRef.current?.focus();
+  }, [searchFocusToken]);
+
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="border-b border-emerald-100 bg-white px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:py-3">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <Button className="lg:hidden" size="icon" variant="ghost" title="打开笔记本" onClick={onBackToNotebooks}>
-              <PanelLeft className="h-4 w-4" />
-            </Button>
+            <button
+              className="flex min-w-0 items-center gap-1 rounded-md px-1 py-1 text-left transition hover:bg-emerald-50 lg:hidden"
+              type="button"
+              title="切换笔记本"
+              onClick={onOpenNotebookPicker}
+            >
+              <span className="max-w-[190px] truncate text-lg font-semibold text-slate-950">
+                {view === "trash" ? "回收站" : notebook?.name ?? "全部笔记"}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
+            </button>
             <div className="min-w-0">
-              <div className="truncate text-lg font-semibold text-slate-950 lg:text-sm">
+              <div className="hidden truncate text-lg font-semibold text-slate-950 lg:block lg:text-sm">
                 {view === "trash" ? "回收站" : notebook?.name ?? "全部笔记"}
               </div>
               <div className="text-xs text-slate-500">
@@ -1194,6 +1405,7 @@ const MemoListPane = ({
         <label className="flex h-9 items-center gap-2 rounded-md border border-emerald-100 bg-emerald-50/70 px-3 text-sm text-slate-500">
           <Search className="h-4 w-4" />
           <input
+            ref={searchInputRef}
             value={search}
             onChange={(event) => onSearch(event.target.value)}
             className="min-w-0 flex-1 bg-transparent text-slate-900 outline-none placeholder:text-slate-400"
@@ -1202,7 +1414,7 @@ const MemoListPane = ({
         </label>
       </header>
 
-      <div className="relative min-h-0 flex-1 overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="relative min-h-0 flex-1 overflow-y-auto p-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] lg:pb-3">
         {selectedMemoIds.size > 0 ? (
           <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-100 bg-white px-3 py-2 shadow-panel">
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -1277,18 +1489,6 @@ const MemoListPane = ({
           </div>
         )}
       </div>
-      {selectedMemoIds.size === 0 ? (
-        <button
-          className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 flex h-14 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-100 px-5 text-sm font-semibold text-emerald-950 shadow-panel transition hover:bg-emerald-200 disabled:opacity-50 lg:hidden"
-          title="新建笔记"
-          onClick={onCreateMemo}
-          disabled={!notebook || isCreating}
-          hidden={view === "trash"}
-        >
-          <FilePlus2 className="h-5 w-5" />
-          新建
-        </button>
-      ) : null}
     </div>
   );
 };
