@@ -6,6 +6,7 @@ import type { ApiToken } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -151,58 +152,53 @@ const ScopePicker = ({ availableScopes, selectedScopes, onToggleScope }: ScopePi
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
-      <button
-        className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left"
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((current) => !current)}
-      >
-        <span className="min-w-0">
-          <span className="block text-xs font-semibold text-slate-700">{t("mcp.scopeTitle")}</span>
-          <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
-            {t("mcp.selectedScopes", { selected: selectedScopes.size, total: availableScopes.length })}
+    <Collapsible className="rounded-lg border border-slate-200 bg-white" open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger asChild>
+        <button className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left" type="button">
+          <span className="min-w-0">
+            <span className="block text-xs font-semibold text-slate-700">{t("mcp.scopeTitle")}</span>
+            <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
+              {t("mcp.selectedScopes", { selected: selectedScopes.size, total: availableScopes.length })}
+            </span>
           </span>
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 shrink-0 text-slate-400 transition-transform",
-            expanded ? "rotate-180" : "rotate-0"
-          )}
-        />
-      </button>
-      {expanded && (
-        <div className="grid gap-2 border-t border-slate-100 p-3 sm:grid-cols-2">
-          {availableScopes.map((scope) => {
-            const checked = selectedScopes.has(scope);
-            const checkboxId = `token-scope-${scope.replace(/[^a-z0-9]+/gi, "-")}`;
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-slate-400 transition-transform",
+              expanded ? "rotate-180" : "rotate-0"
+            )}
+          />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="grid gap-2 border-t border-slate-100 p-3 sm:grid-cols-2">
+        {availableScopes.map((scope) => {
+          const checked = selectedScopes.has(scope);
+          const checkboxId = `token-scope-${scope.replace(/[^a-z0-9]+/gi, "-")}`;
 
-            return (
-              <label
-                key={scope}
-                htmlFor={checkboxId}
-                className={cn(
-                  "flex min-h-10 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
-                  checked
-                    ? "border-emerald-500/30 bg-emerald-50/70 text-emerald-800"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                )}
-              >
-                <Checkbox
-                  id={checkboxId}
-                  checked={checked}
-                  onCheckedChange={() => onToggleScope(scope)}
-                  className="border-emerald-300"
-                />
-                <span className="min-w-0 truncate text-xs font-semibold" title={scope}>
-                  {getTokenScopeLabel(scope, t)}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-      )}
-    </div>
+          return (
+            <label
+              key={scope}
+              htmlFor={checkboxId}
+              className={cn(
+                "flex min-h-10 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
+                checked
+                  ? "border-emerald-500/30 bg-emerald-50/70 text-emerald-800"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              <Checkbox
+                id={checkboxId}
+                checked={checked}
+                onCheckedChange={() => onToggleScope(scope)}
+                className="border-emerald-300"
+              />
+              <span className="min-w-0 truncate text-xs font-semibold" title={scope}>
+                {getTokenScopeLabel(scope, t)}
+              </span>
+            </label>
+          );
+        })}
+      </CollapsibleContent>
+    </Collapsible>
   );
 };
 
