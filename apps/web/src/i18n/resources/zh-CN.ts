@@ -135,6 +135,7 @@ export const zhCN = {
     preferences: "偏好设置",
     languageTitle: "界面语言",
     languageDescription: "切换产品界面的显示语言。",
+    systemLanguage: "跟随系统",
     imageCompressionTitle: "压缩笔记内图片",
     imageCompressionDescription: "上传大图时在本地压缩，节省资源占用。",
     imageCompressionAria: "是否压缩笔记内图片",

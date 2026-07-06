@@ -135,6 +135,7 @@ export const enUS = {
     preferences: "Preferences",
     languageTitle: "Interface language",
     languageDescription: "Change the display language for the product UI.",
+    systemLanguage: "Follow system",
     imageCompressionTitle: "Compress note images",
     imageCompressionDescription: "Compress large images locally before upload to reduce storage use.",
     imageCompressionAria: "Compress note images",

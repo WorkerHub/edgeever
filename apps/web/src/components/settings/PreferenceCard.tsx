@@ -1,10 +1,17 @@
 import { Image } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ShortcutSettings } from "@/lib/app-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { changeAppLocale, defaultLocale, localeLabels, supportedLocales, type SupportedLocale } from "@/i18n";
+import {
+  changeAppLocalePreference,
+  getAppLocalePreference,
+  localeLabels,
+  supportedLocales,
+  type AppLocalePreference,
+} from "@/i18n";
 import { ShortcutSettingsItem } from "./ShortcutSettingsItem";
 
 interface PreferenceCardProps {
@@ -20,10 +27,13 @@ export const PreferenceCard = ({
   shortcutSettings,
   onShortcutSettingsChange,
 }: PreferenceCardProps) => {
-  const { i18n, t } = useTranslation();
-  const activeLocale = supportedLocales.includes(i18n.resolvedLanguage as SupportedLocale)
-    ? (i18n.resolvedLanguage as SupportedLocale)
-    : defaultLocale;
+  const { t } = useTranslation();
+  const [activeLocalePreference, setActiveLocalePreference] = useState<AppLocalePreference>(() => getAppLocalePreference());
+
+  const handleLocalePreferenceChange = (preference: AppLocalePreference) => {
+    setActiveLocalePreference(preference);
+    void changeAppLocalePreference(preference);
+  };
 
   return (
     <Card className="w-full min-w-0 overflow-hidden shadow-none">
@@ -40,11 +50,15 @@ export const PreferenceCard = ({
             <div className="mt-0.5 text-xs leading-4 text-slate-500">{t("settings.languageDescription")}</div>
           </div>
           <div className="w-full shrink-0 sm:w-44">
-            <Select value={activeLocale} onValueChange={(locale) => void changeAppLocale(locale as SupportedLocale)}>
+            <Select
+              value={activeLocalePreference}
+              onValueChange={(preference) => handleLocalePreferenceChange(preference as AppLocalePreference)}
+            >
               <SelectTrigger aria-label={t("common.language")} className="h-9 bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="system">{t("settings.systemLanguage")}</SelectItem>
                 {supportedLocales.map((locale) => (
                   <SelectItem key={locale} value={locale}>
                     {localeLabels[locale]}
