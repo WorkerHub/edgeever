@@ -48,6 +48,10 @@ export const siteCopy = {
       demo: "在线演示",
       language: "语言",
       languageMenu: "切换语言",
+      tagAll: "全部",
+      tagMigration: "迁移教程",
+      tagMcp: "AI 协同 (MCP)",
+      tagSelfHosted: "部署自托管",
     },
     hero: {
       slogan: siteTaglines["zh-CN"],
@@ -155,6 +159,10 @@ export const siteCopy = {
       demo: "Demo",
       language: "Language",
       languageMenu: "Change language",
+      tagAll: "All",
+      tagMigration: "Migration",
+      tagMcp: "AI & MCP",
+      tagSelfHosted: "Deployment",
     },
     hero: {
       slogan: siteTaglines["en-US"],

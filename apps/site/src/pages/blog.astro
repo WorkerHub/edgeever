@@ -3,6 +3,7 @@ import { getCollection } from "astro:content";
 import Container from "@/components/container.astro";
 import Layout from "@/layouts/Layout.astro";
 import { getFormattedDate } from "@/utils/all";
+import { getLocalizedPath, getSiteLocale, siteCopy } from "@/i18n";
 
 const selectedTag = Astro.url.searchParams.get("tag");
 
@@ -15,6 +16,9 @@ const entries = (await getCollection("blog", ({ data }) => {
 })).sort(
   (a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime(),
 );
+
+const locale = getSiteLocale(Astro.url.pathname);
+const copy = siteCopy[locale].nav;
 
 const blogUrl = new URL(Astro.url.pathname, Astro.site).toString();
 const blogDescription =
@@ -33,11 +37,59 @@ const blogJsonLd = {
 <Layout title="博客" description={blogDescription} jsonLd={blogJsonLd}>
   <Container>
     <main class="mx-auto max-w-4xl py-16 md:py-24">
-      <div class="mb-10">
+      <div class="mb-8">
         <p class="text-sm font-semibold text-brand-text">EdgeEver Blog</p>
         <h1 class="mt-3 text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
           博客
         </h1>
+      </div>
+
+      <!-- 标签筛选工具条 -->
+      <div class="flex flex-wrap gap-2 mb-10 select-none">
+        <a
+          href={getLocalizedPath(locale, "/blog")}
+          class:list={[
+            "px-4 py-1.5 text-xs font-medium border rounded-full transition-all duration-200 cursor-pointer",
+            !selectedTag
+              ? "text-brand bg-brand/5 border-brand-border/40 font-semibold shadow-sm"
+              : "text-slate-600 bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+          ]}
+        >
+          {copy.tagAll}
+        </a>
+        <a
+          href={`${getLocalizedPath(locale, "/blog")}?tag=migration`}
+          class:list={[
+            "px-4 py-1.5 text-xs font-medium border rounded-full transition-all duration-200 cursor-pointer",
+            selectedTag === "migration"
+              ? "text-brand bg-brand/5 border-brand-border/40 font-semibold shadow-sm"
+              : "text-slate-600 bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+          ]}
+        >
+          🏷️ {copy.tagMigration}
+        </a>
+        <a
+          href={`${getLocalizedPath(locale, "/blog")}?tag=mcp`}
+          class:list={[
+            "px-4 py-1.5 text-xs font-medium border rounded-full transition-all duration-200 cursor-pointer",
+            selectedTag === "mcp"
+              ? "text-brand bg-brand/5 border-brand-border/40 font-semibold shadow-sm"
+              : "text-slate-600 bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+          ]}
+        >
+          🤖 {copy.tagMcp}
+        </a>
+        <a
+          href={`${getLocalizedPath(locale, "/blog")}?tag=self-hosted`}
+          class:list={[
+            "px-4 py-1.5 text-xs font-medium border rounded-full transition-all duration-200 cursor-pointer",
+            selectedTag === "self-hosted"
+              ? "text-brand bg-brand/5 border-brand-border/40 font-semibold shadow-sm"
+              : "text-slate-600 bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+          ]}
+        >
+          ☁️ {copy.tagSelfHosted}
+        </a>
       </div>
 
       <div class="grid gap-4">
