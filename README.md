@@ -148,6 +148,12 @@ If you want to migrate notes from other platforms to EdgeEver, please refer to t
 - **Memos Migration**: Please refer to [docs/memos-migration-guide.md](docs/memos-migration-guide.md)
 - **Notion Migration**: Please refer to [docs/notion-migration-guide.md](docs/notion-migration-guide.md)
 
+## Development Roadmap
+
+Native clients are part of the EdgeEver roadmap. The mobile app is planned to be built with React Native, and the desktop app is planned to be built with Tauri.
+
+The goal is to let users connect these clients to their own self-hosted EdgeEver instance, keeping the same Cloudflare-based backend, open API, and user-owned data model while providing a smoother native experience on mobile and desktop.
+
 ## Community and Feedback
 
 - Bugs, feature requests, and deployment issues: [GitHub Issues](https://github.com/tianma-if/edgeever/issues)
