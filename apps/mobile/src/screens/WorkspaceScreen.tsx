@@ -4116,8 +4116,10 @@ const EditMemoModal = ({
   const [replaceQuery, setReplaceQuery] = useState("");
   const [replaceValue, setReplaceValue] = useState("");
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [loadedDraftUpdatedAt, setLoadedDraftUpdatedAt] = useState<string | null>(null);
   const [insertTextOpen, setInsertTextOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
+  const localePreference = useMobileLocalePreference();
   const replaceMatches = useMemo(() => getTextSearchMatches(contentMarkdown, replaceQuery), [contentMarkdown, replaceQuery]);
   const hasEditChanges = Boolean(
     memo &&
@@ -4141,6 +4143,7 @@ const EditMemoModal = ({
       setReplaceQuery("");
       setReplaceValue("");
       setUploadProgress("");
+      setLoadedDraftUpdatedAt(null);
       readMobileMemoDraft(memo.id).then((draft) => {
         if (!mounted) {
           return;
@@ -4151,6 +4154,7 @@ const EditMemoModal = ({
           setContentMarkdown(draft.contentMarkdown);
           setNotebookId(draft.notebookId);
           setTagsText(draft.tagsText);
+          setLoadedDraftUpdatedAt(draft.updatedAt);
         }
 
         setDraftLoaded(true);
@@ -4158,6 +4162,7 @@ const EditMemoModal = ({
     } else {
       setDraftLoaded(false);
       setUploadProgress("");
+      setLoadedDraftUpdatedAt(null);
     }
 
     return () => {
@@ -4279,6 +4284,7 @@ const EditMemoModal = ({
       {
         onSuccess: async (savedMemo) => {
           await clearMobileMemoDraft(savedMemo.id);
+          setLoadedDraftUpdatedAt(null);
           onSaved(savedMemo);
         },
         onError: async (error) => {
@@ -4371,6 +4377,12 @@ const EditMemoModal = ({
         </View>
 
         <ScrollView contentContainerStyle={styles.editorForm}>
+          {loadedDraftUpdatedAt ? (
+            <View style={styles.warningPanel}>
+              <Text style={styles.warningText}>已加载本地草稿，最后保存于 {formatDate(loadedDraftUpdatedAt, localePreference)}。保存后会同步到服务端。</Text>
+            </View>
+          ) : null}
+
           <Text style={styles.label}>笔记本</Text>
           <NotebookPicker notebooks={notebooks} onChange={setNotebookId} selectedNotebookId={notebookId} />
 
