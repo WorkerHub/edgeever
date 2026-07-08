@@ -2051,6 +2051,7 @@ const NotebookManagerModal = ({
   const notebookOptions = flattenNotebooks(notebooks, notebookSortMode);
   const notebookSearchQuery = notebookSearchText.trim();
   const childNotebookIds = getNotebookParentIdSet(notebooks);
+  const hasCollapsibleNotebooks = childNotebookIds.size > 0;
   const visibleNotebookOptions = notebookSearchQuery
     ? filterNotebookOptions(notebookOptions, notebookSearchText)
     : filterCollapsedNotebookOptions(notebookOptions, collapsedNotebookIds);
@@ -2147,6 +2148,14 @@ const NotebookManagerModal = ({
     });
   };
 
+  const collapseAllNotebooks = () => {
+    setCollapsedNotebookIds(new Set(childNotebookIds));
+  };
+
+  const expandAllNotebooks = () => {
+    setCollapsedNotebookIds(new Set());
+  };
+
   return (
     <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
       <SafeAreaView style={styles.modalSafeArea}>
@@ -2204,6 +2213,12 @@ const NotebookManagerModal = ({
             <OptionPill active={notebookSortMode === "memo-count-desc"} label="笔记数量" onPress={() => onSortModeChange("memo-count-desc")} />
             <OptionPill active={notebookSortMode === "updated-desc"} label="最近更新" onPress={() => onSortModeChange("updated-desc")} />
           </ScrollView>
+          {hasCollapsibleNotebooks && !notebookSearchQuery ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <OptionPill active={false} label="全部展开" onPress={expandAllNotebooks} />
+              <OptionPill active={false} label="全部折叠" onPress={collapseAllNotebooks} />
+            </ScrollView>
+          ) : null}
           {visibleNotebookOptions.map(({ depth, notebook }) => {
             const editing = editingNotebookId === notebook.id;
             const parentOptions = notebookOptions.filter((option) => option.notebook.id !== notebook.id && !isNotebookDescendant(notebooks, option.notebook.id, notebook.id));
