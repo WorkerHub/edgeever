@@ -224,6 +224,25 @@ const sortMemoSummariesForList = (memos: MemoSummary[], queryKey: readonly unkno
   });
 };
 
+const reflowMemoListPages = (current: MemoListQueryData, memos: MemoSummary[], totalCount: number) => {
+  let offset = 0;
+
+  return {
+    ...current,
+    pages: current.pages.map((page) => {
+      const pageSize = page.memos.length;
+      const nextPageMemos = memos.slice(offset, offset + pageSize);
+      offset += pageSize;
+
+      return {
+        ...page,
+        memos: nextPageMemos,
+        totalCount,
+      };
+    }),
+  };
+};
+
 const updateMemoSummaryInLists = (queryClient: QueryClient, memo: MemoDetail) => {
   const summary = memoToSummary(memo);
 
@@ -232,24 +251,23 @@ const updateMemoSummaryInLists = (queryClient: QueryClient, memo: MemoDetail) =>
       continue;
     }
 
-    let changed = false;
-    const pages = current.pages.map((page) => {
-      let pageChanged = false;
-      const memos = page.memos.map((item) => {
-        if (item.id !== summary.id) {
-          return item;
-        }
+    const flatMemos = current.pages.flatMap((page) => page.memos);
+    const existingIndex = flatMemos.findIndex((item) => item.id === summary.id);
+    const belongsInList = memoBelongsInList(summary, queryKey);
+    const currentTotalCount = current.pages[0]?.totalCount ?? flatMemos.length;
 
-        changed = true;
-        pageChanged = true;
-        return { ...item, ...summary };
-      });
+    if (existingIndex >= 0) {
+      const nextMemos = belongsInList
+        ? flatMemos.map((item) => (item.id === summary.id ? { ...item, ...summary } : item))
+        : flatMemos.filter((item) => item.id !== summary.id);
+      const totalCount = belongsInList ? currentTotalCount : Math.max(0, currentTotalCount - 1);
 
-      return pageChanged ? { ...page, memos } : page;
-    });
+      queryClient.setQueryData(queryKey, reflowMemoListPages(current, sortMemoSummariesForList(nextMemos, queryKey), totalCount));
+      continue;
+    }
 
-    if (!changed && memoBelongsInList(summary, queryKey)) {
-      const [firstPage, ...restPages] = pages;
+    if (belongsInList) {
+      const [firstPage, ...restPages] = current.pages;
       const nextFirstPage = firstPage
         ? {
             ...firstPage,
@@ -259,11 +277,6 @@ const updateMemoSummaryInLists = (queryClient: QueryClient, memo: MemoDetail) =>
         : { memos: [summary], totalCount: 1, nextCursor: null };
 
       queryClient.setQueryData(queryKey, { ...current, pages: [nextFirstPage, ...restPages] });
-      continue;
-    }
-
-    if (changed) {
-      queryClient.setQueryData(queryKey, { ...current, pages });
     }
   }
 };
