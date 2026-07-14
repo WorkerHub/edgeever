@@ -40,7 +40,9 @@ Cloudflare 有两项账号级授权，仓库脚本不能、也不应该绕过：
 
 Worker 触发器已经排除了仅发生在 `apps/site/*`、`apps/mobile/*`、`apps/extension/*`、`docs/*`、README 文件和 `.github/*` 中的变更。因此，仅改官网不会发布 EdgeEver Worker。
 
-如果这个仓库还部署了 Cloudflare Pages 官网，请设置 `EDGE_EVER_PAGES_PROJECT_NAME`，再重跑 `bun run deploy:builds:setup`。命令会将 Pages 的 Build watch paths 设为 `apps/site/*`、`bun.lock`、`package.json`；这样仅改产品代码不会重新构建官网。该可选步骤要求 User API Token 额外拥有 **Account** -> **Cloudflare Pages** -> **Edit**。不使用自动化时，在 **Pages 项目** -> **Settings** -> **Build** -> **Build watch paths** 填入同样的路径即可。
+如果这个仓库还部署了 **Git 集成** 的 Cloudflare Pages 官网，请设置 `EDGE_EVER_PAGES_PROJECT_NAME`，再重跑 `bun run deploy:builds:setup`。命令会将 Pages 的 Build watch paths 设为 `apps/site/*`、`bun.lock`、`package.json`；这样仅改产品代码不会重新构建官网。该可选步骤要求 User API Token 额外拥有 **Account** -> **Cloudflare Pages** -> **Edit**。不使用自动化时，在 **Pages 项目** -> **Settings** -> **Build** -> **Build watch paths** 填入同样的路径即可。
+
+Cloudflare 无法为 **Direct Upload（直接上传）** 类型的 Pages 项目设置 Build watch paths；此时应由部署工作流本身过滤路径。本仓库的 `.github/workflows/deploy-site.yml` 已只监听官网、文档及共享构建输入的改动，因此仅改笔记应用不会触发官网部署。
 
 ### 手动兜底
 

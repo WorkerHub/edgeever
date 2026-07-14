@@ -150,18 +150,26 @@ const triggerPayload = (workerTag, repoConnectionUuid, buildTokenUuid) => ({
 const configurePagesWatchPaths = async () => {
   if (!pagesProjectName) return;
 
-  await request("PATCH", `/accounts/${accountId}/pages/projects/${encodeURIComponent(pagesProjectName)}`, {
-    source: {
-      config: {
-        // `*` spans nested directories in Cloudflare Pages. Root lockfiles and
-        // package metadata are shared build inputs, so they intentionally trigger
-        // both projects when changed.
-        path_includes: ["apps/site/*", "bun.lock", "package.json"],
-        path_excludes: [],
+  try {
+    await request("PATCH", `/accounts/${accountId}/pages/projects/${encodeURIComponent(pagesProjectName)}`, {
+      source: {
+        config: {
+          // `*` spans nested directories in Cloudflare Pages. Root lockfiles and
+          // package metadata are shared build inputs, so they intentionally trigger
+          // both projects when changed.
+          path_includes: ["apps/site/*", "bun.lock", "package.json"],
+          path_excludes: [],
+        },
       },
-    },
-  });
-  console.log(`[ok] configured Pages watch paths for ${pagesProjectName}`);
+    });
+    console.log(`[ok] configured Pages watch paths for ${pagesProjectName}`);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Direct Uploads project")) {
+      console.log(`[skip] ${pagesProjectName} is a Direct Upload Pages project; its deploy workflow already controls path filtering.`);
+      return;
+    }
+    throw error;
+  }
 };
 
 const setup = async () => {
