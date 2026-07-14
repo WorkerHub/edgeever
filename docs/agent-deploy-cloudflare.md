@@ -20,7 +20,7 @@ Chinese version:
 
 - Read `AGENTS.md`, `README.md`, `.env.local.example`, and this file first.
 - Do not create a new Git branch. Work on `main`.
-- Prefer `bun run deploy:setup`, `bun run deploy:doctor`, and `bun run deploy` for initial installation. Then connect the Worker to Cloudflare Workers Builds for all routine updates.
+- Treat deployment as two required phases: use `bun run deploy:setup`, `bun run deploy:doctor`, and `bun run deploy` only for the initial installation; then run `bun run deploy:builds:setup` so all routine updates use Cloudflare Workers Builds.
 - Do not hard-code a personal Worker name, D1 database ID, R2 bucket name, account ID, API token, or domain in source files.
 - Use `.env.local` for local/private deployment values. It is git-ignored.
 - If the Cloudflare MCP or Cloudflare plugin is available, it may be used to inspect or create resources. If not, use Wrangler through the scripts in this repo.
@@ -107,7 +107,7 @@ Chinese version:
    bun run deploy:builds:setup
    ```
 
-   It reads the fork remote and `.env.local`, then creates or updates the Cloudflare repository connection, production trigger, build commands, cache, watch paths, and build variables. The configuration API requires a **User API Token** (`My Profile` -> `API Tokens`), not an Account API Token; set it as `EDGE_EVER_BUILDS_API_TOKEN`. The agent should complete the Cloudflare GitHub App authorization in the browser when available. If Cloudflare requires a build-token choice, use the exact Dashboard path and retry command shown in [Cloudflare Workers Builds](cloudflare-workers-builds.md).
+   It reads the fork remote and `.env.local`, then creates or updates the Cloudflare repository connection, production trigger, build commands, cache, watch paths, and build variables. The configuration API requires a **User API Token** (`My Profile` -> `API Tokens`), not an Account API Token; it must have `Workers Builds Configuration: Edit` and `Workers Scripts: Read`, and be set as `EDGE_EVER_BUILDS_API_TOKEN`. The agent should complete the Cloudflare GitHub App authorization in the browser when available. If Cloudflare requires a build-token choice, use the exact Dashboard path and retry command shown in [Cloudflare Workers Builds](cloudflare-workers-builds.md).
 
    Once connected, a GitHub **Sync fork** push automatically migrates and deploys the user's own instance. Do not configure the repository's GitHub Actions Worker deployment for this purpose.
 
@@ -151,4 +151,5 @@ After deployment, report:
 - login username
 - whether the password was user-provided or generated
 - where to create the EdgeEver MCP token in the app
+- confirmation that Workers Builds is connected and that future `main` pushes automatically migrate and deploy
 - any custom domain or Cloudflare DNS step that remains

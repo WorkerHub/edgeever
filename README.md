@@ -25,15 +25,16 @@ The public demo resets daily and restores sample notes. Do not store private con
 
 ### Deploy with an AI Agent
 
-Copy this prompt into your AI coding assistant, such as Claude Code, Codex, Antigravity, Cursor, or Trae:
+Copy this prompt into your AI coding assistant, such as Claude Code, Codex, Antigravity, Cursor, or Trae. It covers the first installation and the automatic-update setup:
 
 **Recommendation:** Before deployment, configure GitHub and Cloudflare MCP servers, plugins, or other supported integrations for your AI Agent. This allows it to fork the repository, create the required Cloudflare resources, deploy the application, and connect the instance to Cloudflare Workers Builds.
 
 ```text
 Please follow these steps:
 1. Fork the EdgeEver upstream repository: https://github.com/tianma-if/edgeever
-2. Use the forked repository to install and deploy EdgeEver to Cloudflare.
-3. Connect the deployed Worker to the fork's `main` branch through Cloudflare Workers Builds, so GitHub Sync fork automatically builds, migrates, and deploys future updates.
+2. Use the forked repository to create the Cloudflare resources and complete EdgeEver's first deployment.
+3. Run `bun run deploy:builds:setup` to connect the deployed Worker to the fork's `main` branch through Cloudflare Workers Builds. If setup needs a token, use a User API Token, not an Account API Token.
+4. After that, GitHub Sync fork or any push to `main` must automatically build, apply D1 migrations, and deploy the instance.
 ```
 
 Agents should follow [AI Agent Cloudflare Deployment](docs/agent-deploy-cloudflare.md).
@@ -42,11 +43,13 @@ After the first deployment, see [Cloudflare Workers Builds](docs/cloudflare-work
 
 > Common pitfall: Cloudflare R2, D1, and Workers may still require a Visa card during activation or usage, even when you stay within the free quotas.
 
+<p align="center">or</p>
+
 ### Manual Deployment
 
-Please refer to the [Cloudflare Manual Deployment Guide](docs/manual-deploy.md) for step-by-step instructions on manual installation and updating.
+Please refer to the [Cloudflare Manual Deployment Guide](docs/manual-deploy.md) for first-time manual installation, Cloudflare resource setup, and emergency recovery. After the first deployment, connect Workers Builds; future updates arrive through GitHub **Sync fork** or pushes to `main`.
 
-The automated helper commands are recommended. If you create the Cloudflare resources manually, finish configuring `.env.local`—including the D1 ID, R2 bucket, password hash, and the 400-day session limit—before running `bun run deploy`.
+The automated helper commands are recommended. If you create the Cloudflare resources manually, finish configuring `.env.local`—including the D1 ID, R2 bucket, password hash, and the 400-day session limit—before running `bun run deploy`. Use that command only for first installation and emergency recovery; Workers Builds handles routine updates.
 
 
 ## Features

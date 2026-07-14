@@ -74,13 +74,6 @@ If you deployed from a fork:
 
 1. Open your own EdgeEver fork on GitHub.
 2. Click **Sync fork** on GitHub to sync the latest code from upstream.
-3. Return to your local project and redeploy:
+3. If Cloudflare Workers Builds is connected, the push automatically builds, applies D1 migrations, and deploys. No local redeployment is needed.
 
-```sh
-git pull
-bun install
-bun run deploy:doctor
-bun run deploy
-```
-
-Syncing the fork only updates the code in GitHub. It does not automatically update the instance already deployed on Cloudflare. You still need to run the deployment command again.
+For an older instance that is not yet connected to Workers Builds, complete the one-time [Workers Builds setup](/en/manual-deploy#enable-automatic-updates) before using **Sync fork** for future updates.

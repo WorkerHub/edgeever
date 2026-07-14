@@ -1,6 +1,6 @@
 # Cloudflare 手动部署指南
 
-如果你熟悉 Cloudflare 和命令行，或者想自定义/精细控制部署流程，可以按照以下指南进行手动部署与后续更新。
+如果你熟悉 Cloudflare 和命令行，或者想自定义/精细控制首次安装与资源配置，可以按照以下指南进行手动部署。日常更新统一由 Cloudflare Workers Builds 完成；本地部署仅用于首次安装和紧急修复。
 
 > 💡 **提示**：如果是通过 AI 助手（Claude Code、Codex、Antigravity、Cursor、Trae 等）进行部署，AI 助手应优先参考 [AI Agent Cloudflare Deployment](https://github.com/tianma-if/edgeever/blob/main/docs/agent-deploy-cloudflare.md) 约定。
 
@@ -70,8 +70,12 @@ bun run deploy
 
 ## 开启自动更新
 
-首次部署完成后，请按 [Cloudflare Workers Builds 自动部署](cloudflare-workers-builds.zh-CN.md) 将 Worker 连接到 Fork。它是所有 EdgeEver 实例的标准生产发布路径。
+首次部署后，必须将 Worker 连接到 Fork 的 `main` 分支；Cloudflare Workers Builds 是所有 EdgeEver 实例的标准生产发布路径。请先按 [Cloudflare Workers Builds 自动部署](cloudflare-workers-builds.zh-CN.md) 创建仅供配置使用的 **User API Token**（不是 Account API Token），将它私下写入 `.env.local` 的 `EDGE_EVER_BUILDS_API_TOKEN`，然后执行：
 
-一次连接完成后，只需在 Fork 页面点击 **Sync fork**。产生的 push 会自动构建 Web、应用新的远程 D1 migration 并发布 Worker；不需要再配置 GitHub Actions Secrets，也不需要本地重新部署。
+```sh
+bun run deploy:builds:setup
+```
+
+该命令会配置 Git 仓库连接、生产触发器、构建变量和 D1 migration 所需的部署 token。完成后，只需在 Fork 页面点击 **Sync fork**，或推送到 `main`；Cloudflare 会自动构建 Web、应用新的远程 D1 migration 并发布 Worker。不需要 GitHub Actions Secrets，也不需要本地重新部署。
 
 请保留 `bun run deploy` 作为首次安装和紧急修复的入口。

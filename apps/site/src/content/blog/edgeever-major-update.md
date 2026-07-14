@@ -74,13 +74,6 @@ EdgeEver 提供：
 
 1. 打开你自己的 EdgeEver Fork 仓库。
 2. 点击 GitHub 页面上的 **Sync fork**，同步官方仓库的最新代码。
-3. 回到本地项目目录重新部署：
+3. 已配置 Cloudflare Workers Builds 时，产生的 push 会自动构建、执行 D1 migration 并发布，无需回到本地重新部署。
 
-```sh
-git pull
-bun install
-bun run deploy:doctor
-bun run deploy
-```
-
-同步 Fork 只会更新 GitHub 仓库里的代码，不会自动更新已经部署到 Cloudflare 的实例。同步后必须重新执行部署命令。
+如果是较早安装的实例、尚未连接 Workers Builds，请先按 [Cloudflare Workers Builds 自动部署](/manual-deploy#开启自动更新) 完成一次连接；之后再使用 **Sync fork** 更新。
