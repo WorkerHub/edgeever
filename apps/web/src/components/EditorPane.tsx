@@ -2672,7 +2672,7 @@ const RichEditorPane = ({
               spellCheck
               data-edgeever-mobile-editor="plain-textarea"
               aria-label="笔记正文"
-              className="block min-h-[60dvh] w-full resize-none border border-slate-200 bg-white px-4 py-3 pr-32 text-base leading-7 text-slate-900 outline-none placeholder:text-slate-400 sm:px-7"
+              className="block min-h-[60dvh] w-full resize-none border border-slate-200 bg-white px-4 py-3 pr-32 text-base leading-7 text-slate-950 outline-none placeholder:text-slate-400 sm:px-7"
               placeholder="开始记录..."
               style={{ WebkitUserSelect: "text", userSelect: "text", caretColor: "auto" }}
             />

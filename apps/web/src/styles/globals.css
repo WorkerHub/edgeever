@@ -170,7 +170,7 @@ textarea {
 }
 
 .ProseMirror {
-  color: #020617;
+  color: #000;
   font-size: var(--editor-body-font-size);
   line-height: var(--editor-body-line-height);
   min-height: 100%;
