@@ -4499,7 +4499,7 @@ const MemoDetailModal = ({
   visible: boolean;
 }) => {
   const { session } = useSession();
-  const { resolvedTheme, toggleTheme } = useMobileTheme();
+  const { resolvedTheme } = useMobileTheme();
   const [actionsOpen, setActionsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -4546,20 +4546,12 @@ const MemoDetailModal = ({
     <Modal animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen" visible={visible}>
       <SafeAreaView style={styles.modalSafeArea}>
         <View style={styles.detailHeader}>
-          <Pressable accessibilityLabel="返回" accessibilityRole="button" onPress={onClose} style={styles.detailHeaderButton}>
+          <Pressable accessibilityLabel="返回列表" accessibilityRole="button" onPress={onClose} style={styles.detailHeaderButton}>
             <ChevronLeft color="#475569" size={21} />
           </Pressable>
           <View style={styles.detailHeaderActions}>
-            <Text numberOfLines={1} style={styles.detailSyncStatus}>{isSaving ? "保存中" : "已同步"}</Text>
-            <Pressable
-              accessibilityLabel={resolvedTheme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
-              accessibilityRole="button"
-              onPress={toggleTheme}
-              style={styles.detailHeaderIconButton}
-            >
-              {resolvedTheme === "dark" ? <Sun color="#475569" size={19} /> : <Moon color="#475569" size={19} />}
-            </Pressable>
-            {memo ? (
+            <Text numberOfLines={1} style={styles.detailSyncStatus}>{isSaving ? "保存中" : "已保存"}</Text>
+            {memo?.isDeleted ? (
               <Pressable accessibilityLabel="笔记操作" accessibilityRole="button" onPress={() => setActionsOpen(true)} style={styles.detailHeaderIconButton}>
                 <MoreHorizontal color="#475569" size={21} />
               </Pressable>
@@ -4575,9 +4567,19 @@ const MemoDetailModal = ({
           <ScrollView contentContainerStyle={styles.detailContent}>
             <Text style={styles.detailTitle}>{memo.title?.trim() || DEFAULT_MEMO_TITLE}</Text>
             <View style={styles.detailMetaRow}>
-              <Text numberOfLines={1} style={styles.detailNotebookName}>{notebookName}</Text>
-              {memo.tags.length ? <Tag color="#64748b" size={15} /> : null}
-              {memo.tags.length ? <Text numberOfLines={1} style={styles.detailTagsInline}>{memo.tags.join(", ")}</Text> : null}
+              <View style={styles.detailNotebookButton}>
+                <Text numberOfLines={1} style={styles.detailNotebookName}>{notebookName}</Text>
+                <ChevronDown color="#94a3b8" size={14} />
+              </View>
+              <View style={styles.detailTagsGroup}>
+                <Tag color="#64748b" size={16} />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.detailTagsInline, memo.tags.length === 0 && styles.detailTagsPlaceholder]}
+                >
+                  {memo.tags.length ? memo.tags.join(", ") : "添加标签，用逗号分隔"}
+                </Text>
+              </View>
             </View>
             {searchOpen ? (
               <View style={styles.noteSearchPanel}>
@@ -4626,10 +4628,10 @@ const MemoDetailModal = ({
             }}
             style={styles.detailEditFab}
           >
-            <Pencil color="#ffffff" size={22} />
+            <Pencil color="#ffffff" size={20} />
           </Pressable>
         ) : null}
-        {memo ? (
+        {memo?.isDeleted ? (
           <Modal animationType="fade" onRequestClose={() => setActionsOpen(false)} transparent visible={actionsOpen}>
             <Pressable onPress={() => setActionsOpen(false)} style={styles.actionSheetBackdrop}>
               <Pressable style={styles.actionSheet}>
@@ -8525,14 +8527,14 @@ const baseWorkspaceStyles = StyleSheet.create({
   },
   detailContent: {
     paddingBottom: 112,
-    paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   detailTitle: {
     color: "#0f172a",
-    fontSize: 23,
-    fontWeight: "800",
-    lineHeight: 31,
+    fontSize: 24,
+    fontWeight: "700",
+    lineHeight: 30,
   },
   detailHeader: {
     alignItems: "center",
@@ -8540,15 +8542,15 @@ const baseWorkspaceStyles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 52,
-    paddingHorizontal: 10,
+    minHeight: 48,
+    paddingHorizontal: 12,
   },
   detailHeaderButton: {
     alignItems: "center",
-    borderRadius: 20,
-    height: 40,
+    borderRadius: 6,
+    height: 32,
     justifyContent: "center",
-    width: 40,
+    width: 32,
   },
   detailHeaderActions: {
     alignItems: "center",
@@ -8557,61 +8559,79 @@ const baseWorkspaceStyles = StyleSheet.create({
   },
   detailHeaderIconButton: {
     alignItems: "center",
-    borderRadius: 18,
-    height: 36,
+    borderRadius: 6,
+    height: 32,
     justifyContent: "center",
-    width: 36,
+    width: 32,
   },
   detailSyncStatus: {
     backgroundColor: "#f1f5f9",
     borderRadius: 999,
     color: "#64748b",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "500",
     maxWidth: 88,
     overflow: "hidden",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   detailMetaRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 7,
-    marginTop: 16,
+    gap: 8,
+    marginTop: 12,
+  },
+  detailNotebookButton: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+    height: 32,
+    maxWidth: "46%",
+    paddingHorizontal: 8,
   },
   detailNotebookName: {
     color: "#64748b",
-    fontSize: 13,
-    marginRight: 8,
-    maxWidth: "42%",
+    flexShrink: 1,
+    fontSize: 14,
+  },
+  detailTagsGroup: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    height: 32,
+    paddingHorizontal: 8,
   },
   detailTagsInline: {
     color: "#64748b",
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
+  },
+  detailTagsPlaceholder: {
+    color: "#94a3b8",
   },
   detailDivider: {
     backgroundColor: "#e2e8f0",
     height: 1,
-    marginHorizontal: -18,
-    marginTop: 20,
+    marginHorizontal: -16,
+    marginTop: 16,
     marginBottom: 18,
   },
   detailEditFab: {
     alignItems: "center",
     backgroundColor: "#10b981",
-    borderRadius: 28,
-    bottom: 28,
+    borderRadius: 24,
+    bottom: 16,
     elevation: 6,
-    height: 56,
+    height: 48,
     justifyContent: "center",
     position: "absolute",
-    right: 22,
+    right: 16,
     shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    width: 56,
+    width: 48,
   },
   detailMarkdown: {
     color: "#1f2937",
