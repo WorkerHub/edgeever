@@ -4,19 +4,20 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
-  Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ExternalLink, LockKeyhole } from "../components/icons";
+import { Pressable, Text, TextInput } from "../components/LocalizedText";
+import { resolveMobileThemeStyles, useMobileTheme, type MobileResolvedTheme } from "../lib/mobile-theme";
 import { useSession } from "../lib/session";
 
 const GITHUB_REPOSITORY_URL = "https://github.com/tianma-if/edgeever";
 
 export const LoginScreen = () => {
+  const { resolvedTheme } = useMobileTheme();
+  refreshLoginThemeStyles(resolvedTheme);
   const { signIn } = useSession();
   const [baseUrl, setBaseUrl] = useState("");
   const [username, setUsername] = useState("admin");
@@ -118,7 +119,7 @@ export const LoginScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseLoginStyles = StyleSheet.create({
   safeArea: {
     backgroundColor: "#ecfdf5",
     flex: 1,
@@ -222,3 +223,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 });
+
+let styles = baseLoginStyles;
+let loginStylesTheme: MobileResolvedTheme = "light";
+
+const refreshLoginThemeStyles = (theme: MobileResolvedTheme) => {
+  if (loginStylesTheme !== theme) {
+    styles = resolveMobileThemeStyles(baseLoginStyles, theme);
+    loginStylesTheme = theme;
+  }
+};

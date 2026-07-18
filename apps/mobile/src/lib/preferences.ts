@@ -5,11 +5,13 @@ const NOTEBOOK_SORT_KEY = "edgeever.mobile.notebookSort";
 const IMAGE_COMPRESSION_KEY = "edgeever.mobile.imageCompressionEnabled";
 const LOCALE_PREFERENCE_KEY = "edgeever.mobile.localePreference";
 const RESOURCE_LAYOUT_KEY = "edgeever.mobile.resourceLayout";
+const THEME_PREFERENCE_KEY = "edgeever.mobile.themePreference";
 
 export type MobileMemoListDensity = "preview" | "compact";
 export type MobileNotebookSortPreference = "manual" | "name-asc" | "memo-count-desc" | "updated-desc";
 export type MobileLocalePreference = "system" | "zh-CN" | "en-US";
 export type MobileResourceLayoutPreference = "grid" | "list";
+export type MobileThemePreference = "system" | "light" | "dark";
 
 export const readMobileMemoListDensity = async (): Promise<MobileMemoListDensity> => {
   const value = await AsyncStorage.getItem(MEMO_LIST_DENSITY_KEY);
@@ -45,6 +47,13 @@ export const readMobileResourceLayout = async (): Promise<MobileResourceLayoutPr
 };
 
 export const writeMobileResourceLayout = (layout: MobileResourceLayoutPreference) => AsyncStorage.setItem(RESOURCE_LAYOUT_KEY, layout);
+
+export const readMobileThemePreference = async (): Promise<MobileThemePreference> => {
+  const value = await AsyncStorage.getItem(THEME_PREFERENCE_KEY);
+  return value === "light" || value === "dark" || value === "system" ? value : "system";
+};
+
+export const writeMobileThemePreference = (theme: MobileThemePreference) => AsyncStorage.setItem(THEME_PREFERENCE_KEY, theme);
 
 const isMobileNotebookSortPreference = (value: unknown): value is MobileNotebookSortPreference =>
   value === "manual" || value === "name-asc" || value === "memo-count-desc" || value === "updated-desc";

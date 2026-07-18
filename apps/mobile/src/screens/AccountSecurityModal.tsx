@@ -5,17 +5,15 @@ import { KeyRound, Plus, UserRound, Users, X } from "../components/icons";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert, Pressable, Text, TextInput } from "../components/LocalizedText";
+import { resolveMobileThemeStyles, useMobileTheme, type MobileResolvedTheme } from "../lib/mobile-theme";
 import { useSession } from "../lib/session";
 
 type Section = "password" | "users";
@@ -31,6 +29,8 @@ export const AccountSecurityModal = ({
   onClose: () => void;
   visible: boolean;
 }) => {
+  const { resolvedTheme } = useMobileTheme();
+  refreshAccountSecurityThemeStyles(resolvedTheme);
   const { client } = useSession();
   const queryClient = useQueryClient();
   const [section, setSection] = useState<Section>("password");
@@ -235,7 +235,7 @@ const PrimaryButton = ({ disabled, label, onPress }: { disabled: boolean; label:
   </Pressable>
 );
 
-const styles = StyleSheet.create({
+const baseAccountSecurityStyles = StyleSheet.create({
   safeArea: { backgroundColor: "#f7faf7", flex: 1 },
   header: { alignItems: "center", borderBottomColor: "#dce7dd", borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", padding: 16 },
   title: { color: "#17211a", fontSize: 17, fontWeight: "800" },
@@ -271,3 +271,13 @@ const styles = StyleSheet.create({
   userName: { color: "#17211a", fontSize: 14, fontWeight: "800" },
   link: { color: "#15803d", fontSize: 12, fontWeight: "700", marginTop: 6 },
 });
+
+let styles = baseAccountSecurityStyles;
+let accountSecurityStylesTheme: MobileResolvedTheme = "light";
+
+const refreshAccountSecurityThemeStyles = (theme: MobileResolvedTheme) => {
+  if (accountSecurityStylesTheme !== theme) {
+    styles = resolveMobileThemeStyles(baseAccountSecurityStyles, theme);
+    accountSecurityStylesTheme = theme;
+  }
+};

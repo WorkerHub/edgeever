@@ -1,0 +1,71 @@
+import { Children, forwardRef, isValidElement, type ComponentRef, type ReactNode } from "react";
+import {
+  Alert as NativeAlert,
+  Pressable as NativePressable,
+  Text as NativeText,
+  TextInput as NativeTextInput,
+  type PressableProps,
+  type TextInputProps,
+  type TextProps,
+} from "react-native";
+import { translateCurrentMobileText, useMobileLocale } from "../lib/mobile-locale";
+
+const translateChildren = (children: ReactNode, translate: (value: string) => string): ReactNode =>
+  Children.map(children, (child) => {
+    if (typeof child === "string") {
+      return translate(child);
+    }
+    if (isValidElement(child) && child.type === NativeText) {
+      return child;
+    }
+    return child;
+  });
+
+export const Text = forwardRef<ComponentRef<typeof NativeText>, TextProps>(({ children, ...props }, ref) => {
+  const { translate } = useMobileLocale();
+  return (
+    <NativeText {...props} ref={ref}>
+      {translateChildren(children, translate)}
+    </NativeText>
+  );
+});
+
+Text.displayName = "LocalizedText";
+
+export const TextInput = forwardRef<ComponentRef<typeof NativeTextInput>, TextInputProps>(({ accessibilityHint, accessibilityLabel, placeholder, ...props }, ref) => {
+  const { translate } = useMobileLocale();
+  return (
+    <NativeTextInput
+      {...props}
+      accessibilityHint={typeof accessibilityHint === "string" ? translate(accessibilityHint) : accessibilityHint}
+      accessibilityLabel={typeof accessibilityLabel === "string" ? translate(accessibilityLabel) : accessibilityLabel}
+      placeholder={placeholder ? translate(placeholder) : placeholder}
+      ref={ref}
+    />
+  );
+});
+
+TextInput.displayName = "LocalizedTextInput";
+
+export const Pressable = forwardRef<ComponentRef<typeof NativePressable>, PressableProps>(
+  ({ accessibilityHint, accessibilityLabel, ...props }, ref) => (
+    <NativePressable
+      {...props}
+      accessibilityHint={typeof accessibilityHint === "string" ? translateCurrentMobileText(accessibilityHint) : accessibilityHint}
+      accessibilityLabel={typeof accessibilityLabel === "string" ? translateCurrentMobileText(accessibilityLabel) : accessibilityLabel}
+      ref={ref}
+    />
+  )
+);
+
+Pressable.displayName = "LocalizedPressable";
+
+export const Alert = {
+  alert: (...[title, message, buttons, options]: Parameters<typeof NativeAlert.alert>) =>
+    NativeAlert.alert(
+      translateCurrentMobileText(title),
+      message ? translateCurrentMobileText(message) : message,
+      buttons?.map((button) => ({ ...button, text: button.text ? translateCurrentMobileText(button.text) : button.text })),
+      options
+    ),
+};

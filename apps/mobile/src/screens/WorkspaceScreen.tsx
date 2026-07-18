@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient, type UseMutationResult } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import Constants from "expo-constants";
@@ -15,7 +15,6 @@ import {
   CheckSquare,
   Code,
   Copy,
-  Database,
   ExternalLink,
   FileArchive,
   FileSpreadsheet,
@@ -35,6 +34,7 @@ import {
   LogOut,
   Merge,
   Minus,
+  Moon,
   MoreHorizontal,
   Music,
   Pencil,
@@ -47,6 +47,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Sun,
   Tag,
   Trash2,
   Upload,
@@ -57,7 +58,6 @@ import {
 } from "../components/icons";
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   AppState,
   type AppStateStatus,
@@ -67,27 +67,23 @@ import {
   Linking,
   Modal,
   Platform,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert, Pressable, Text, TextInput } from "../components/LocalizedText";
 import Markdown from "react-native-markdown-display";
 import { createExcerpt, docToMarkdown, docToText, getNotebookDescendantIds, markdownToDoc, type ApiToken, type MemoDetail, type MemoRevision, type MemoSummary, type Notebook, type ResourceListItem, type TagSummary, type TiptapDoc } from "@edgeever/shared";
 import { clearMobileMemoDraft, clearMobileNewMemoDraft, readMobileMemoDraft, readMobileNewMemoDraft, writeMobileMemoDraft, writeMobileNewMemoDraft } from "../lib/mobile-drafts";
 import {
   readMobileImageCompressionEnabled,
-  readMobileLocalePreference,
   readMobileMemoListDensity,
   readMobileNotebookSort,
   readMobileResourceLayout,
   writeMobileImageCompressionEnabled,
-  writeMobileLocalePreference,
   writeMobileMemoListDensity,
   writeMobileNotebookSort,
   writeMobileResourceLayout,
@@ -96,6 +92,7 @@ import {
   type MobileNotebookSortPreference,
   type MobileResourceLayoutPreference,
 } from "../lib/preferences";
+import { useMobileLocale } from "../lib/mobile-locale";
 import { useSession } from "../lib/session";
 import {
   deleteMobileSyncQueueItem,
@@ -122,23 +119,16 @@ import {
 import { AccountSecurityModal } from "./AccountSecurityModal";
 import { getStartupPerformanceItems, markStartup, recordEditorStartup } from "../lib/startup-performance";
 import LocalTiptapEditor, { type LocalTiptapEditorRef } from "../components/LocalTiptapEditor";
+import { resolveMobileThemeStyles, useMobileTheme, type MobileResolvedTheme } from "../lib/mobile-theme";
 
 const ALL_NOTES_ID = "all";
 const DEFAULT_MEMO_TITLE = "无标题笔记";
+const resolveEditableMemoTitle = (title?: string | null) => {
+  const trimmedTitle = title?.trim() ?? "";
+  return trimmedTitle === DEFAULT_MEMO_TITLE ? "" : trimmedTitle;
+};
 const MOBILE_APP_VERSION = Constants.expoConfig?.version ?? "0.1.2";
 const GITHUB_REPOSITORY_URL = "https://github.com/tianma-if/edgeever";
-const EVERNOTE_IMPORT_SCRIPT_URL =
-  "https://raw.githubusercontent.com/tianma-if/edgeever/main/scripts/import-evernote-enex-via-mcp.mjs";
-const EVERNOTE_MIGRATION_PROMPT = `你是 AI 编程助手。请帮我把本地的印象笔记全量迁移到我当前部署的 EdgeEver 实例中：
-1. 检查并使用 \`pipx install evernote-backup\` 自动安装备份工具。
-2. 提示我输入印象笔记的用户名和密码并初始化数据库（指定 china 后端），随后同步数据并导出到 \`./evernote-export\` 目录。
-3. 从 GitHub 下载最新版迁移脚本：\`${EVERNOTE_IMPORT_SCRIPT_URL}\` 到本地。
-4. 安装脚本所需的本地图片压缩库 \`sharp\` 和 \`fast-xml-parser\` 依赖。
-5. 使用先前配置的 URL 和 Token 运行该脚本完成迁移（脚本会自动进行 WebP 图片转换）：
-   - 全量迁移：\`bun import-evernote-enex-via-mcp.mjs --input "./evernote-export" --yes\`
-   - 指定迁移某些笔记本：追加 \`--include "笔记本A,笔记本B"\` 参数。
-
-请告诉我你需要什么信息（如账号密码），收到后直接并发自动执行上述步骤。`;
 const MOBILE_MEMO_TEMPLATES_ZH: MemoTemplate[] = [
   {
     id: "quick-note",
@@ -288,7 +278,7 @@ const MAX_COMPRESSED_IMAGE_EDGE = 2560;
 const IMAGE_COMPRESSION_QUALITY = 0.82;
 
 type MobileView = "notes" | "search" | "account" | "settings";
-type SettingsTab = "general" | "users" | "data" | "ai" | "account";
+type SettingsTab = "general" | "users" | "ai" | "account";
 type MemoView = "notebook" | "trash";
 type MemoTemplate = {
   id: string;
@@ -303,8 +293,7 @@ type NotebookOption = {
 };
 type MobileNotebookSortMode = MobileNotebookSortPreference;
 type MobileLocaleMode = MobileLocalePreference;
-const MobileLocaleContext = createContext<MobileLocaleMode>("system");
-const useMobileLocalePreference = () => useContext(MobileLocaleContext);
+const useMobileLocalePreference = () => useMobileLocale().preference;
 type TextSelection = {
   start: number;
   end: number;
@@ -321,6 +310,9 @@ type MobileMemoUpdatePayload = {
 type MobileMemoUpdateMutation = UseMutationResult<MemoDetail, Error, { memo: MemoDetail; payload: MobileMemoUpdatePayload }>;
 
 export const WorkspaceScreen = () => {
+  const { resolvedTheme } = useMobileTheme();
+  const { preference: localePreference, setPreference: setLocalePreference } = useMobileLocale();
+  refreshWorkspaceThemeStyles(resolvedTheme);
   const { client, session, signOut } = useSession();
   const queryClient = useQueryClient();
   const safeAreaInsets = useSafeAreaInsets();
@@ -333,7 +325,6 @@ export const WorkspaceScreen = () => {
   const [memoSortMode, setMemoSortMode] = useState<MemoSortMode>("updated-desc");
   const [memoListDensity, setMemoListDensity] = useState<MobileMemoListDensity>("preview");
   const [notebookSortMode, setNotebookSortMode] = useState<MobileNotebookSortMode>("manual");
-  const [localePreference, setLocalePreference] = useState<MobileLocaleMode>("system");
   const [imageCompressionEnabled, setImageCompressionEnabled] = useState(true);
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
@@ -348,7 +339,6 @@ export const WorkspaceScreen = () => {
   const [tagsManagerOpen, setTagsManagerOpen] = useState(false);
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [apiTokensOpen, setApiTokensOpen] = useState(false);
-  const [evernoteGuideOpen, setEvernoteGuideOpen] = useState(false);
   const [advancedPlayOpen, setAdvancedPlayOpen] = useState(false);
   const [systemInfoOpen, setSystemInfoOpen] = useState(false);
   const [accountSecurityOpen, setAccountSecurityOpen] = useState(false);
@@ -648,20 +638,6 @@ export const WorkspaceScreen = () => {
   useEffect(() => {
     let mounted = true;
 
-    readMobileLocalePreference().then((locale) => {
-      if (mounted) {
-        setLocalePreference(locale);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
     readMobileNotebookSort().then((sortMode) => {
       if (mounted) {
         setNotebookSortMode(sortMode);
@@ -685,7 +661,6 @@ export const WorkspaceScreen = () => {
 
   const handleLocalePreferenceChange = (locale: MobileLocaleMode) => {
     setLocalePreference(locale);
-    void writeMobileLocalePreference(locale);
   };
 
   const handleImageCompressionChange = (enabled: boolean) => {
@@ -1115,8 +1090,7 @@ export const WorkspaceScreen = () => {
   }, [client, dataScope, queryClient]);
 
   return (
-    <MobileLocaleContext.Provider value={localePreference}>
-      <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
 
       {activeView === "notes" ? (
         <NotesView
@@ -1189,7 +1163,6 @@ export const WorkspaceScreen = () => {
             setAccountSecurityOpen(true);
           }}
           onOpenApiTokens={() => setApiTokensOpen(true)}
-          onOpenEvernoteGuide={() => setEvernoteGuideOpen(true)}
           onOpenSystemInfo={() => setSystemInfoOpen(true)}
           localePreference={localePreference}
           onLocalePreferenceChange={handleLocalePreferenceChange}
@@ -1260,7 +1233,6 @@ export const WorkspaceScreen = () => {
       {tagsManagerOpen ? <TagsManagerModal onClose={() => setTagsManagerOpen(false)} visible /> : null}
       {resourcesOpen ? <ResourcesModal activeMemo={selectedMemo} imageCompressionEnabled={imageCompressionEnabled} onClose={() => setResourcesOpen(false)} visible /> : null}
       {apiTokensOpen ? <ApiTokensModal baseUrl={session?.baseUrl ?? ""} onClose={() => setApiTokensOpen(false)} visible /> : null}
-      {evernoteGuideOpen ? <EvernoteGuideModal onClose={() => setEvernoteGuideOpen(false)} visible /> : null}
       {advancedPlayOpen ? <AdvancedPlayModal onClose={() => setAdvancedPlayOpen(false)} visible /> : null}
       {syncQueueOpen ? <SyncQueueModal
         onClose={() => setSyncQueueOpen(false)}
@@ -1284,6 +1256,7 @@ export const WorkspaceScreen = () => {
         activeNotebookId={activeNotebookId}
         baseUrl={session?.baseUrl ?? ""}
         dataScope={dataScope}
+        imageCompressionEnabled={imageCompressionEnabled}
         notebooks={notebooks}
         onClose={() => setCreateOpen(false)}
         onCreated={(memo) => {
@@ -1435,8 +1408,7 @@ export const WorkspaceScreen = () => {
           onPress={() => setActiveView("settings")}
         />
       </View>
-      </SafeAreaView>
-    </MobileLocaleContext.Provider>
+    </SafeAreaView>
   );
 };
 
@@ -1642,6 +1614,7 @@ const NotebookPickerModal = ({
   onSelect: (notebookId: string) => void;
   visible: boolean;
 }) => {
+  const { translate } = useMobileLocale();
   const [searchText, setSearchText] = useState("");
   const [collapsedNotebookIds, setCollapsedNotebookIds] = useState<Set<string>>(() => new Set());
   const notebookOptions = flattenNotebooks(notebooks, notebookSortMode);
@@ -1650,6 +1623,9 @@ const NotebookPickerModal = ({
   const visibleNotebookOptions = searchQuery
     ? filterNotebookOptions(notebookOptions, searchText)
     : filterCollapsedNotebookOptions(notebookOptions, collapsedNotebookIds);
+  const activeNotebookName = activeNotebookId === ALL_NOTES_ID
+    ? "全部笔记"
+    : notebooks.find((notebook) => notebook.id === activeNotebookId)?.name ?? "全部笔记";
 
   useEffect(() => {
     if (visible) {
@@ -1672,17 +1648,21 @@ const NotebookPickerModal = ({
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
-      <SafeAreaView style={styles.modalSafeArea}>
-        <View style={styles.modalHeader}>
-          <IconButton onPress={onClose}>
-            <X color="#0f172a" size={20} />
-          </IconButton>
-          <Text style={styles.modalTitle}>选择笔记本</Text>
-          <View style={styles.iconButtonPlaceholder} />
-        </View>
+    <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
+      <Pressable onPress={onClose} style={styles.actionSheetBackdrop}>
+        <Pressable style={[styles.actionSheet, styles.notebookPickerSheet]}>
+          <View style={styles.actionSheetHandle} />
+          <View style={styles.notebookPickerHeader}>
+            <View style={styles.notebookPickerHeaderText}>
+              <Text style={styles.actionSheetTitle}>切换笔记本</Text>
+              <Text style={styles.panelLabel}>{translate(`当前：${activeNotebookName}`)}</Text>
+            </View>
+            <IconButton accessibilityLabel="关闭" onPress={onClose}>
+              <X color="#0f172a" size={20} />
+            </IconButton>
+          </View>
 
-        <ScrollView contentContainerStyle={styles.editorForm}>
+          <ScrollView contentContainerStyle={styles.editorForm} style={styles.notebookPickerScroll}>
           <View style={styles.searchBox}>
             <Search color="#64748b" size={18} />
             <TextInput
@@ -1706,7 +1686,7 @@ const NotebookPickerModal = ({
               <Text numberOfLines={1} style={styles.panelValue}>
                 全部笔记
               </Text>
-              <Text style={styles.panelLabel}>{notebooksMemoCount} 条笔记</Text>
+              <Text style={styles.panelLabel}>{translate(`${notebooksMemoCount} 条笔记`)}</Text>
             </View>
             {activeNotebookId === ALL_NOTES_ID ? <Check color="#0f172a" size={18} /> : null}
           </Pressable>
@@ -1728,7 +1708,7 @@ const NotebookPickerModal = ({
                 <Text numberOfLines={1} style={styles.panelValue}>
                   {depth > 0 ? `${"· ".repeat(depth)}${notebook.name}` : notebook.name}
                 </Text>
-                <Text style={styles.panelLabel}>{notebook.memoCount} 条笔记</Text>
+                <Text style={styles.panelLabel}>{translate(`${notebook.memoCount} 条笔记`)}</Text>
               </Pressable>
               {activeNotebookId === notebook.id ? <Check color="#0f172a" size={18} /> : null}
             </View>
@@ -1739,8 +1719,9 @@ const NotebookPickerModal = ({
               <Text style={styles.mutedText}>没有匹配的笔记本</Text>
             </View>
           ) : null}
-        </ScrollView>
-      </SafeAreaView>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 };
@@ -1972,7 +1953,6 @@ const SettingsView = ({
   onLocalePreferenceChange,
   onOpenAdvancedPlay,
   onOpenApiTokens,
-  onOpenEvernoteGuide,
   onOpenPassword,
   onOpenSystemInfo,
   onOpenUserManagement,
@@ -1986,17 +1966,16 @@ const SettingsView = ({
   onLocalePreferenceChange: (locale: MobileLocaleMode) => void;
   onOpenAdvancedPlay: () => void;
   onOpenApiTokens: () => void;
-  onOpenEvernoteGuide: () => void;
   onOpenPassword: () => void;
   onOpenSystemInfo: () => void;
   onOpenUserManagement: () => void;
   onSignOut: () => void;
 }) => {
+  const { resolvedTheme, toggleTheme } = useMobileTheme();
   const [activeTab, setActiveTab] = useState<SettingsTab | null>(null);
   const tabs: Array<{ key: SettingsTab; label: string; icon: ReactNode }> = [
     { key: "general", label: "常规设置", icon: <SlidersHorizontal color="#059669" size={17} /> },
     ...(isOwner ? [{ key: "users" as const, label: "成员管理", icon: <Users color="#059669" size={17} /> }] : []),
-    { key: "data", label: "数据管理", icon: <Database color="#059669" size={17} /> },
     { key: "ai", label: "AI集成", icon: <Sparkles color="#059669" size={17} /> },
     { key: "account", label: "登录设置", icon: <ShieldCheck color="#059669" size={17} /> },
   ];
@@ -2047,9 +2026,6 @@ const SettingsView = ({
     if (activeTab === "users") {
       return <SettingsLinkGroup description="为家人或团队成员创建独立的个人笔记空间。实例不开放公开注册。" icon={<Users color="#047857" size={16} />} onPress={onOpenUserManagement} title="成员管理" />;
     }
-    if (activeTab === "data") {
-      return <SettingsLinkGroup description="MCP 迁移流程与 Prompt。" icon={<FileArchive color="#047857" size={16} />} onPress={onOpenEvernoteGuide} title="Evernote 导入指引" />;
-    }
     if (activeTab === "ai") {
       return (
         <View style={styles.settingsDetailList}>
@@ -2079,7 +2055,14 @@ const SettingsView = ({
           {activeTab ? tabs.find((tab) => tab.key === activeTab)?.icon : <UserRound color="#047857" size={17} />}
           <Text numberOfLines={1} style={styles.settingsTitle}>{title}</Text>
         </View>
-        <View style={styles.settingsBackPlaceholder} />
+        <Pressable
+          accessibilityLabel={resolvedTheme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
+          accessibilityRole="button"
+          onPress={toggleTheme}
+          style={styles.settingsThemeButton}
+        >
+          {resolvedTheme === "dark" ? <Sun color="#64748b" size={19} /> : <Moon color="#64748b" size={19} />}
+        </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.settingsScrollContent} style={styles.viewBody}>
         {activeTab === null ? (
@@ -2123,6 +2106,7 @@ const CreateMemoModal = ({
   activeNotebookId,
   baseUrl,
   dataScope,
+  imageCompressionEnabled,
   notebooks,
   onClose,
   onCreated,
@@ -2133,6 +2117,7 @@ const CreateMemoModal = ({
   activeNotebookId: string;
   baseUrl: string;
   dataScope: string;
+  imageCompressionEnabled: boolean;
   notebooks: Notebook[];
   onClose: () => void;
   onCreated: (memo: MemoDetail) => void;
@@ -2140,12 +2125,17 @@ const CreateMemoModal = ({
   syncQueueScope: string;
   visible: boolean;
 }) => {
+  const { client } = useSession();
   const queryClient = useQueryClient();
+  const { resolvedLocale } = useMobileLocale();
+  const { resolvedTheme } = useMobileTheme();
   const fallbackNotebookId = activeNotebookId !== ALL_NOTES_ID ? activeNotebookId : notebooks[0]?.id ?? "";
   const editorRef = useRef<LocalTiptapEditorRef>(null);
   const contentJsonRef = useRef<TiptapDoc>(markdownToDoc(""));
   const contentMarkdownRef = useRef("");
   const dirtyRef = useRef(false);
+  const flushResolverRef = useRef<(() => void) | null>(null);
+  const materializedMemoRef = useRef<MemoDetail | null>(null);
   const [notebookId, setNotebookId] = useState(fallbackNotebookId);
   const [title, setTitle] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -2155,8 +2145,15 @@ const CreateMemoModal = ({
   const [draftRestored, setDraftRestored] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
+  const [imageOperation, setImageOperation] = useState<"idle" | "creating" | "uploading">("idle");
   const targetNotebookId = notebookId || fallbackNotebookId;
   const selectedNotebookName = notebooks.find((notebook) => notebook.id === targetNotebookId)?.name ?? "选择笔记本";
+  const titleRef = useRef(title);
+  const tagsTextRef = useRef(tagsText);
+  const targetNotebookIdRef = useRef(targetNotebookId);
+  titleRef.current = title;
+  tagsTextRef.current = tagsText;
+  targetNotebookIdRef.current = targetNotebookId;
 
   useEffect(() => {
     if (!visible) {
@@ -2195,13 +2192,26 @@ const CreateMemoModal = ({
       return;
     }
     const timeout = setTimeout(() => {
-      void writeMobileNewMemoDraft(dataScope, {
-        title,
-        contentMarkdown: contentMarkdownRef.current,
-        notebookId: targetNotebookId,
-        tagsText,
-        updatedAt: new Date().toISOString(),
-      });
+      const materializedMemo = materializedMemoRef.current;
+      if (materializedMemo) {
+        void writeMobileMemoDraft({
+          memoId: materializedMemo.id,
+          expectedRevision: materializedMemo.revision,
+          title,
+          contentMarkdown: contentMarkdownRef.current,
+          notebookId: targetNotebookId,
+          tagsText,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        void writeMobileNewMemoDraft(dataScope, {
+          title,
+          contentMarkdown: contentMarkdownRef.current,
+          notebookId: targetNotebookId,
+          tagsText,
+          updatedAt: new Date().toISOString(),
+        });
+      }
     }, 350);
     return () => clearTimeout(timeout);
   }, [dataScope, dirty, draftLoaded, tagsText, targetNotebookId, title, visible, contentMarkdown]);
@@ -2210,6 +2220,27 @@ const CreateMemoModal = ({
     mutationFn: async () => {
       if (!targetNotebookId) {
         throw new Error("请先创建一个笔记本");
+      }
+      const materializedMemo = materializedMemoRef.current;
+      if (materializedMemo) {
+        const optimisticMemo = createOptimisticMemo(materializedMemo, {
+          title: titleRef.current.trim() || DEFAULT_MEMO_TITLE,
+          contentJson: contentJsonRef.current,
+          contentMarkdown: contentMarkdownRef.current.trim(),
+          notebookId: targetNotebookIdRef.current,
+          tags: parseTags(tagsTextRef.current),
+        });
+        await upsertLocalMemo(dataScope, optimisticMemo);
+        await queueMobileMemoUpdate(syncQueueScope, {
+          memoId: materializedMemo.id,
+          expectedRevision: materializedMemo.revision,
+          expectedContentHash: materializedMemo.contentHash,
+          title: optimisticMemo.title ?? DEFAULT_MEMO_TITLE,
+          contentMarkdown: optimisticMemo.contentMarkdown,
+          notebookId: optimisticMemo.notebookId,
+          tags: optimisticMemo.tags,
+        });
+        return optimisticMemo;
       }
       const now = new Date().toISOString();
       const temporaryId = `local:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`;
@@ -2249,6 +2280,7 @@ const CreateMemoModal = ({
       return memo;
     },
     onSuccess: async (memo) => {
+      const materializedMemoId = materializedMemoRef.current?.id ?? null;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["mobile", "notebooks"] }),
         queryClient.invalidateQueries({ queryKey: ["mobile", "memos"] }),
@@ -2258,23 +2290,71 @@ const CreateMemoModal = ({
       setContentMarkdown("");
       contentMarkdownRef.current = "";
       contentJsonRef.current = markdownToDoc("");
+      materializedMemoRef.current = null;
       dirtyRef.current = false;
       setDirty(false);
       await clearMobileNewMemoDraft(dataScope);
+      if (materializedMemoId) {
+        await clearMobileMemoDraft(materializedMemoId);
+      }
       await onQueued();
       onCreated(memo);
     },
   });
-  const canSubmitCreateMemo = Boolean(targetNotebookId) && !createMutation.isPending;
+  const canSubmitCreateMemo = Boolean(targetNotebookId) && !createMutation.isPending && imageOperation === "idle";
 
-  const pickImageLinkFromClipboard = async () => {
-    const text = await Clipboard.getStringAsync();
-    const url = text.trim();
-    if (!/^https?:\/\//i.test(url)) {
-      Alert.alert("新建笔记暂未上传图片", "可以先复制图片链接插入；本地图片请在完成创建后上传。");
-      return null;
+  const materializeMemoForImage = async () => {
+    if (materializedMemoRef.current) {
+      return materializedMemoRef.current;
     }
-    return { alt: "图片", url };
+    if (!client || !targetNotebookIdRef.current) {
+      throw new Error("当前无法连接实例，请稍后重试");
+    }
+    setImageOperation("creating");
+    const response = await client.createMemo({
+      notebookId: targetNotebookIdRef.current,
+      title: titleRef.current.trim() || DEFAULT_MEMO_TITLE,
+      contentMarkdown: contentMarkdownRef.current.trim(),
+      tags: parseTags(tagsTextRef.current),
+    });
+    materializedMemoRef.current = response.memo;
+    await upsertLocalMemo(dataScope, response.memo);
+    await clearMobileNewMemoDraft(dataScope);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["mobile", "notebooks"] }),
+      queryClient.invalidateQueries({ queryKey: ["mobile", "memos"] }),
+    ]);
+    return response.memo;
+  };
+
+  const pickAndUploadImage = async () => {
+    try {
+      const DocumentPicker = await import("expo-document-picker");
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: ["image/*"],
+      });
+      const asset = result.canceled ? null : result.assets[0];
+      if (!asset) {
+        return null;
+      }
+      const memo = await materializeMemoForImage();
+      setImageOperation("uploading");
+      const uploadAsset = await prepareUploadAsset(asset, imageCompressionEnabled);
+      const form = new FormData();
+      form.append("file", uploadAsset as unknown as Blob);
+      const { resource } = await client!.uploadMemoResource(memo.id, form);
+      return {
+        alt: resource.filename || uploadAsset.name || "图片",
+        url: resource.url,
+      };
+    } catch (error) {
+      Alert.alert("图片上传失败", error instanceof Error ? error.message : "请检查网络连接后重试");
+      return null;
+    } finally {
+      setImageOperation("idle");
+    }
   };
 
   const markDirty = () => {
@@ -2282,11 +2362,35 @@ const CreateMemoModal = ({
     setDirty(true);
   };
 
-  const requestClose = () => {
-    if (createMutation.isPending) {
+  const flushEditor = async () => {
+    if (!editorRef.current) {
       return;
     }
-    editorRef.current?.flush();
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        flushResolverRef.current = null;
+        resolve();
+      };
+      flushResolverRef.current = finish;
+      editorRef.current?.flush();
+      setTimeout(finish, 1000);
+    });
+  };
+
+  const requestClose = async () => {
+    if (createMutation.isPending || imageOperation !== "idle") {
+      return;
+    }
+    await flushEditor();
+    if (materializedMemoRef.current) {
+      createMutation.mutate();
+      return;
+    }
     if (!dirtyRef.current) {
       onClose();
       return;
@@ -2335,34 +2439,35 @@ const CreateMemoModal = ({
         contentMarkdownRef.current = markdown;
         setContentMarkdown(markdown);
         markDirty();
+        flushResolverRef.current?.();
+        flushResolverRef.current = null;
       }}
-      onPickImage={pickImageLinkFromClipboard}
+      onPickImage={pickAndUploadImage}
       onReady={async (elapsedMs) => {
         setEditorReady(true);
         recordEditorStartup(elapsedMs);
       }}
       ref={editorRef}
+      locale={resolvedLocale}
+      theme={resolvedTheme}
     />
-  ) : null, [baseUrl, draftLoaded]);
+  ) : null, [baseUrl, draftLoaded, resolvedLocale, resolvedTheme]);
 
   return (
-    <Modal animationType="slide" onRequestClose={requestClose} presentationStyle="fullScreen" visible={visible}>
+    <Modal animationType="none" onRequestClose={() => void requestClose()} presentationStyle="fullScreen" visible={visible}>
       <SafeAreaView style={styles.createMemoSafeArea}>
         <View style={styles.createMemoHeader}>
-          <Pressable accessibilityLabel="返回" accessibilityRole="button" disabled={createMutation.isPending} onPress={requestClose} style={styles.createMemoBackButton}>
-            <ChevronLeft color={createMutation.isPending ? "#cbd5e1" : "#0f172a"} size={30} />
+          <Pressable accessibilityLabel="返回" accessibilityRole="button" disabled={createMutation.isPending || imageOperation !== "idle"} onPress={() => void requestClose()} style={styles.createMemoBackButton}>
+            <ChevronLeft color={createMutation.isPending || imageOperation !== "idle" ? "#cbd5e1" : "#0f172a"} size={30} />
           </Pressable>
           <View style={styles.createMemoHeaderActions}>
             <Text style={[styles.createMemoStatus, createMutation.isPending && styles.createMemoStatusActive]}>
-              {createMutation.isPending ? "保存中" : dirty ? "本地草稿" : editorReady ? "已保存" : "正在启动"}
+              {imageOperation === "creating" ? "正在创建" : imageOperation === "uploading" ? "正在上传" : createMutation.isPending ? "保存中" : dirty ? "本地草稿" : editorReady ? "已保存" : "正在启动"}
             </Text>
             <Pressable
               accessibilityLabel="完成新建笔记"
               disabled={!canSubmitCreateMemo}
-              onPress={() => {
-                editorRef.current?.flush();
-                createMutation.mutate();
-              }}
+              onPress={() => void flushEditor().then(() => createMutation.mutate())}
               style={[styles.createMemoDoneButton, !canSubmitCreateMemo && styles.createMemoDoneButtonDisabled]}
             >
               {createMutation.isPending ? <ActivityIndicator color="#64748b" size="small" /> : <Text style={[styles.createMemoDoneText, !canSubmitCreateMemo && styles.createMemoDoneTextDisabled]}>完成</Text>}
@@ -2552,7 +2657,7 @@ const NotebookManagerModal = ({
 }) => {
   const { client } = useSession();
   const queryClient = useQueryClient();
-  const createNotebookInputRef = useRef<TextInput>(null);
+  const createNotebookInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState<string | null>(null);
   const [editingNotebookId, setEditingNotebookId] = useState<string | null>(null);
@@ -3229,89 +3334,6 @@ const ApiTokenRow = ({
   );
 };
 
-const EvernoteGuideModal = ({ onClose, visible }: { onClose: () => void; visible: boolean }) => {
-  const [copiedValue, setCopiedValue] = useState<string | null>(null);
-
-  const copyText = async (value: string, label: string) => {
-    await Clipboard.setStringAsync(value);
-    setCopiedValue(label);
-    setTimeout(() => setCopiedValue((current) => (current === label ? null : current)), 1600);
-  };
-
-  return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
-      <SafeAreaView style={styles.modalSafeArea}>
-        <View style={styles.modalHeader}>
-          <IconButton onPress={onClose}>
-            <X color="#0f172a" size={20} />
-          </IconButton>
-          <Text style={styles.modalTitle}>Evernote 导入指引</Text>
-          <IconButton onPress={() => copyText(EVERNOTE_MIGRATION_PROMPT, "prompt-header")}>
-            {copiedValue === "prompt-header" ? <ShieldCheck color="#047857" size={18} /> : <Copy color="#0f172a" size={18} />}
-          </IconButton>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.editorForm}>
-          <View style={styles.guideHero}>
-            <Upload color="#047857" size={24} />
-            <Text style={styles.panelValue}>推荐通过 AI 编程助手 + EdgeEver MCP 自动迁移</Text>
-            <Text style={styles.panelLabel}>
-              该方案支持大体量 ENEX 导入、WebP 图片转换、创建/修改时间保留，以及嵌套笔记本目录层级还原。
-            </Text>
-          </View>
-
-          <GuideStep
-            title="1. 配置 EdgeEver MCP 服务"
-            body="在设置页打开“MCP 与 API Token”，创建包含笔记本、笔记、资源、标签读写权限的 Token，复制完整 MCP 配置并交给 AI 编程助手安装。"
-          />
-          <GuideStep
-            title="2. 发送完整迁移 Prompt"
-            body="让助手安装 evernote-backup，初始化印象笔记 china 后端数据库，同步并导出 ENEX，再下载 EdgeEver 迁移脚本执行导入。"
-          />
-          <GuideStep
-            title="3. 按需限定导入范围"
-            body="默认会全量迁移。只想导入部分笔记本时，让助手在导入命令后追加 --include 参数。"
-          />
-          <GuideStep
-            title="4. 回到 EdgeEver 验证"
-            body="导入完成后刷新客户端，检查笔记本组层级、笔记正文、图片资源、创建时间和修改时间是否正常。"
-          />
-
-          <View style={styles.promptCard}>
-            <View style={styles.promptCardHeader}>
-              <Text style={styles.panelValue}>可直接复制给 AI 助手的 Prompt</Text>
-              <ActionButton label={copiedValue === "prompt-card" ? "已复制" : "复制"} onPress={() => copyText(EVERNOTE_MIGRATION_PROMPT, "prompt-card")}>
-                {copiedValue === "prompt-card" ? <ShieldCheck color="#047857" size={16} /> : <Copy color="#0f172a" size={16} />}
-              </ActionButton>
-            </View>
-            <Text selectable style={styles.revisionPreviewText}>
-              {EVERNOTE_MIGRATION_PROMPT}
-            </Text>
-          </View>
-
-          <View style={styles.revisionPreviewBlock}>
-            <Text style={styles.label}>手动模式备用</Text>
-            <Text style={styles.revisionPreviewText}>
-              不使用 AI 助手时，可以手动下载迁移脚本并按脚本头部注释执行。脚本地址：
-            </Text>
-            <Text selectable style={styles.tokenValueText}>
-              {EVERNOTE_IMPORT_SCRIPT_URL}
-            </Text>
-            <View style={styles.tokenActionRow}>
-              <ActionButton label={copiedValue === "script-url" ? "已复制" : "复制地址"} onPress={() => copyText(EVERNOTE_IMPORT_SCRIPT_URL, "script-url")}>
-                {copiedValue === "script-url" ? <ShieldCheck color="#047857" size={16} /> : <Copy color="#0f172a" size={16} />}
-              </ActionButton>
-              <ActionButton label="打开" onPress={() => Linking.openURL(EVERNOTE_IMPORT_SCRIPT_URL)}>
-                <ExternalLink color="#0f172a" size={16} />
-              </ActionButton>
-            </View>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
-};
-
 const AdvancedPlayModal = ({ onClose, visible }: { onClose: () => void; visible: boolean }) => {
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const localePreference = useMobileLocalePreference();
@@ -3474,13 +3496,6 @@ const SyncQueueModal = ({
     </Modal>
   );
 };
-
-const GuideStep = ({ body, title }: { body: string; title: string }) => (
-  <View style={styles.guideStep}>
-    <Text style={styles.panelValue}>{title}</Text>
-    <Text style={styles.panelLabel}>{body}</Text>
-  </View>
-);
 
 const SystemInfoModal = ({
   baseUrl,
@@ -4357,6 +4372,8 @@ const RichEditorModal = ({
   updateMutation: MobileMemoUpdateMutation;
 }) => {
   const { client } = useSession();
+  const { resolvedLocale } = useMobileLocale();
+  const { resolvedTheme } = useMobileTheme();
   const editorRef = useRef<LocalTiptapEditorRef>(null);
   const contentJsonRef = useRef<TiptapDoc>(memo?.contentJson ?? markdownToDoc(memo?.contentMarkdown ?? ""));
   const contentMarkdownRef = useRef(memo?.contentMarkdown ?? "");
@@ -4365,7 +4382,7 @@ const RichEditorModal = ({
   const flushResolverRef = useRef<(() => void) | null>(null);
   const savingRef = useRef(false);
   const uploadingRef = useRef(false);
-  const [title, setTitle] = useState(memo?.title?.trim() || "");
+  const [title, setTitle] = useState(resolveEditableMemoTitle(memo?.title));
   const [tagsText, setTagsText] = useState(memo?.tags.join(", ") ?? "");
   const [notebookId, setNotebookId] = useState(memo?.notebookId ?? "");
   const [notebookPickerOpen, setNotebookPickerOpen] = useState(false);
@@ -4411,7 +4428,7 @@ const RichEditorModal = ({
       contentMarkdownRef.current = restoredDraft ? restoredDraft.contentMarkdown : memo.contentMarkdown || "";
       contentSnapshotRef.current = JSON.stringify(restoredJson);
       dirtyRef.current = canRestore;
-      setTitle(restoredDraft ? restoredDraft.title : memo.title?.trim() || "");
+      setTitle(resolveEditableMemoTitle(restoredDraft ? restoredDraft.title : memo.title));
       setTagsText(restoredDraft ? restoredDraft.tagsText : memo.tags.join(", "));
       setNotebookId(restoredDraft ? restoredDraft.notebookId : memo.notebookId);
       setDirty(canRestore);
@@ -4579,9 +4596,11 @@ const RichEditorModal = ({
           recordEditorStartup(elapsedMs);
         }}
         ref={editorRef}
+        locale={resolvedLocale}
+        theme={resolvedTheme}
       />
     ) : null,
-    [baseUrl, draftLoaded, memo?.id]
+    [baseUrl, draftLoaded, memo?.id, resolvedLocale, resolvedTheme]
   );
 
   useEffect(() => {
@@ -4602,54 +4621,68 @@ const RichEditorModal = ({
     return () => clearTimeout(timeout);
   }, [dirty, memo, notebookId, tagsText, title]);
 
+  useEffect(() => {
+    if (!memo || !dirty || !ready || savingRef.current || uploadingRef.current) {
+      return;
+    }
+    const timeout = setTimeout(() => {
+      void flushEditor().then(save);
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [dirty, memo, notebookId, ready, tagsText, title]);
+
   return (
-    <Modal animationType="slide" onRequestClose={() => void requestClose()} presentationStyle="fullScreen" visible={Boolean(memo)}>
+    <Modal animationType="none" onRequestClose={() => void requestClose()} presentationStyle="fullScreen" visible={Boolean(memo)}>
       <SafeAreaView style={styles.richEditorSafeArea}>
-        <View style={styles.modalHeader}>
-          <IconButton accessibilityLabel="保存并关闭" disabled={saving || uploading} onPress={() => void requestClose()}>
-            <X color={saving || uploading ? "#cbd5e1" : "#0f172a"} size={20} />
-          </IconButton>
-          <Text numberOfLines={1} style={styles.modalTitle}>
-            富文本编辑器
-          </Text>
-          <IconButton accessibilityLabel="保存" disabled={saving || uploading || !ready} onPress={() => void flushEditor().then(save)}>
-            {saving ? <ActivityIndicator color="#0f172a" /> : <Check color={saving || uploading || !ready ? "#cbd5e1" : "#0f172a"} size={20} />}
-          </IconButton>
+        <View style={styles.createMemoHeader}>
+          <Pressable accessibilityLabel="返回" accessibilityRole="button" disabled={saving || uploading} onPress={() => void requestClose()} style={styles.createMemoBackButton}>
+            <ChevronLeft color={saving || uploading ? "#cbd5e1" : "#0f172a"} size={30} />
+          </Pressable>
+          <View style={styles.createMemoHeaderActions}>
+            <Text style={[styles.createMemoStatus, (saving || uploading || dirty) && styles.createMemoStatusActive, error && styles.richEditorStatusError]}>{saveLabel}</Text>
+            <Pressable
+              accessibilityLabel="完成编辑"
+              accessibilityRole="button"
+              disabled={saving || uploading || !ready}
+              onPress={() => void requestClose()}
+              style={[styles.createMemoDoneButton, (saving || uploading || !ready) && styles.createMemoDoneButtonDisabled]}
+            >
+              {saving ? <ActivityIndicator color="#64748b" size="small" /> : <Text style={[styles.createMemoDoneText, (uploading || !ready) && styles.createMemoDoneTextDisabled]}>完成</Text>}
+            </Pressable>
+          </View>
         </View>
 
         {memo && baseUrl ? (
           <View style={styles.richEditorContainer}>
-            <View style={styles.richEditorMeta}>
-              <View style={styles.richEditorTitleBlock}>
-                <TextInput
-                  onChangeText={(value) => {
-                    setTitle(value);
-                    dirtyRef.current = true;
-                    setDirty(true);
-                  }}
-                  placeholder={DEFAULT_MEMO_TITLE}
-                  placeholderTextColor="#94a3b8"
-                  style={styles.richEditorTitle}
-                  value={title}
-                />
-                <Pressable accessibilityRole="button" onPress={() => setNotebookPickerOpen(true)}>
-                  <Text numberOfLines={1} style={styles.richEditorNotebook}>{notebookLabel} · 修订 {memo.revision}</Text>
-                </Pressable>
-              </View>
-              <Text style={[styles.richEditorStatus, error ? styles.richEditorStatusError : saving || uploading || !ready ? styles.richEditorStatusLoading : styles.richEditorStatusActive]}>{saveLabel}</Text>
-            </View>
             <TextInput
-              autoCapitalize="none"
               onChangeText={(value) => {
-                setTagsText(value);
+                setTitle(value);
                 dirtyRef.current = true;
                 setDirty(true);
               }}
-              placeholder="标签，用逗号分隔"
+              placeholder={DEFAULT_MEMO_TITLE}
               placeholderTextColor="#94a3b8"
-              style={styles.richEditorTagsInput}
-              value={tagsText}
+              style={styles.createMemoTitleInput}
+              value={title}
             />
+            <View style={styles.createMemoMetaRow}>
+              <Pressable accessibilityLabel="所在笔记本" accessibilityRole="button" onPress={() => setNotebookPickerOpen(true)} style={styles.createMemoNotebookButton}>
+                <Text numberOfLines={1} style={styles.createMemoNotebookText}>{notebookLabel}</Text>
+                <ChevronDown color="#64748b" size={14} />
+              </Pressable>
+              <TextInput
+                autoCorrect
+                onChangeText={(value) => {
+                  setTagsText(value);
+                  dirtyRef.current = true;
+                  setDirty(true);
+                }}
+                placeholder="添加标签，用逗号分隔"
+                placeholderTextColor="#94a3b8"
+                style={styles.createMemoTagsInput}
+                value={tagsText}
+              />
+            </View>
             {draftRestored ? <Text style={styles.richEditorDraftNotice}>已恢复上次未完成的本地草稿</Text> : null}
             <View style={styles.richEditorFrame}>
               {!ready || !draftLoaded ? (
@@ -6563,7 +6596,7 @@ const detailMarkdownStyles = StyleSheet.create({
   },
 });
 
-const styles = StyleSheet.create({
+const baseWorkspaceStyles = StyleSheet.create({
   safeArea: {
     backgroundColor: "#f8fafc",
     flex: 1,
@@ -6592,8 +6625,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 36,
   },
-  settingsBackPlaceholder: {
+  settingsThemeButton: {
+    alignItems: "center",
+    borderRadius: 8,
     height: 36,
+    justifyContent: "center",
     width: 36,
   },
   settingsHeaderTitle: {
@@ -7608,6 +7644,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
   },
+  notebookPickerSheet: {
+    maxHeight: "82%",
+    paddingHorizontal: 0,
+  },
+  notebookPickerHeader: {
+    alignItems: "center",
+    borderBottomColor: "#e2e8f0",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+  },
+  notebookPickerHeaderText: {
+    flex: 1,
+    gap: 2,
+  },
+  notebookPickerScroll: {
+    flexShrink: 1,
+  },
   actionSheetHandle: {
     alignSelf: "center",
     backgroundColor: "#cbd5e1",
@@ -7944,14 +8000,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: 8,
-    padding: 14,
-  },
-  guideStep: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 6,
     padding: 14,
   },
   promptCard: {
@@ -8394,3 +8442,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 });
+
+let styles = baseWorkspaceStyles;
+let workspaceStylesTheme: MobileResolvedTheme = "light";
+
+const refreshWorkspaceThemeStyles = (theme: MobileResolvedTheme) => {
+  if (workspaceStylesTheme === theme) {
+    return;
+  }
+  styles = resolveMobileThemeStyles(baseWorkspaceStyles, theme);
+  workspaceStylesTheme = theme;
+};

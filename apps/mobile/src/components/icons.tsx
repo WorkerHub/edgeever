@@ -1,11 +1,15 @@
 import Feather from "@expo/vector-icons/Feather";
 import type { ComponentProps } from "react";
+import { resolveMobileThemeColor, useMobileTheme } from "../lib/mobile-theme";
 
 type FeatherName = ComponentProps<typeof Feather>["name"];
 type IconProps = Omit<ComponentProps<typeof Feather>, "name">;
 
 const createIcon = (name: FeatherName) => {
-  const Icon = (props: IconProps) => <Feather name={name} {...props} />;
+  const Icon = ({ color, ...props }: IconProps) => {
+    const { resolvedTheme } = useMobileTheme();
+    return <Feather name={name} {...props} color={resolveMobileThemeColor(color as string | undefined, resolvedTheme)} />;
+  };
   Icon.displayName = `EdgeEverIcon(${name})`;
   return Icon;
 };
@@ -39,6 +43,7 @@ export const Link = createIcon("link");
 export const List = createIcon("list");
 export const LockKeyhole = createIcon("lock");
 export const LogOut = createIcon("log-out");
+export const Moon = createIcon("moon");
 export const Merge = createIcon("git-merge");
 export const Minus = createIcon("minus");
 export const MoreHorizontal = createIcon("more-horizontal");
@@ -53,6 +58,7 @@ export const Search = createIcon("search");
 export const ShieldCheck = createIcon("shield");
 export const SlidersHorizontal = createIcon("sliders");
 export const Sparkles = createIcon("star");
+export const Sun = createIcon("sun");
 export const Tag = createIcon("tag");
 export const Trash2 = createIcon("trash-2");
 export const Upload = createIcon("upload");

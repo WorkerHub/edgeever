@@ -28,6 +28,8 @@ type LocalTiptapEditorProps = {
   onPickImage: () => Promise<PickedImage | null>;
   onReady: (startupMs: number) => Promise<void>;
   ref: Ref<LocalTiptapEditorRef>;
+  locale: "zh-CN" | "en-US";
+  theme: "light" | "dark";
 };
 
 const CHANGE_IDLE_MS = 500;
@@ -51,7 +53,7 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
         inline: false,
       }),
       Placeholder.configure({
-        placeholder: "开始记录...",
+        placeholder: props.locale === "en-US" ? "Start writing..." : "开始记录...",
       }),
     ],
     content: resolveImageSources(props.content, props.baseUrl),
@@ -124,11 +126,8 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
     editor,
     selector: ({ editor: activeEditor }) =>
       (activeEditor?.isActive("bold") ? 1 : 0) |
-      (activeEditor?.isActive("italic") ? 2 : 0) |
-      (activeEditor?.isActive("heading", { level: 2 }) ? 4 : 0) |
       (activeEditor?.isActive("bulletList") ? 8 : 0) |
-      (activeEditor?.isActive("blockquote") ? 16 : 0) |
-      (activeEditor?.isActive("codeBlock") ? 32 : 0),
+      (activeEditor?.isActive("blockquote") ? 16 : 0),
   });
 
   const insertImage = async () => {
@@ -143,18 +142,13 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
 
   return (
     <div className="edgeever-editor-shell">
-      <style>{EDITOR_STYLES}</style>
-      <div aria-label="编辑器工具栏" className="edgeever-editor-toolbar" role="toolbar">
-        <ToolbarButton active={Boolean(toolbarState & 4)} label="标题" onRun={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} text="H2" />
-        <ToolbarButton active={Boolean(toolbarState & 1)} label="加粗" onRun={() => editor?.chain().focus().toggleBold().run()} text="B" />
-        <ToolbarButton active={Boolean(toolbarState & 2)} label="斜体" onRun={() => editor?.chain().focus().toggleItalic().run()} text="I" />
-        <ToolbarButton active={Boolean(toolbarState & 8)} label="无序列表" onRun={() => editor?.chain().focus().toggleBulletList().run()} text="•" />
-        <ToolbarButton active={Boolean(toolbarState & 16)} label="引用" onRun={() => editor?.chain().focus().toggleBlockquote().run()} text="❝" />
-        <ToolbarButton active={Boolean(toolbarState & 32)} label="代码块" onRun={() => editor?.chain().focus().toggleCodeBlock().run()} text="&lt;/&gt;" />
-        <ToolbarButton label="分割线" onRun={() => editor?.chain().focus().setHorizontalRule().run()} text="—" />
-        <ToolbarButton label="插入图片" onRun={() => void insertImage()} text="＋图" />
-        <ToolbarButton label="撤销" onRun={() => editor?.chain().focus().undo().run()} text="↶" />
-        <ToolbarButton label="重做" onRun={() => editor?.chain().focus().redo().run()} text="↷" />
+      <style>{getEditorStyles(props.theme)}</style>
+      <div aria-label={props.locale === "en-US" ? "Editor toolbar" : "编辑器工具栏"} className="edgeever-editor-toolbar" role="toolbar">
+        <ToolbarButton label={props.locale === "en-US" ? "Upload image" : "上传图片"} onRun={() => void insertImage()} text={props.locale === "en-US" ? "+ Image" : "＋图"} />
+        <ToolbarButton active={Boolean(toolbarState & 1)} label={props.locale === "en-US" ? "Bold" : "加粗"} onRun={() => editor?.chain().focus().toggleBold().run()} text="B" />
+        <ToolbarButton active={Boolean(toolbarState & 8)} label={props.locale === "en-US" ? "Bullet list" : "无序列表"} onRun={() => editor?.chain().focus().toggleBulletList().run()} text="•" />
+        <ToolbarButton active={Boolean(toolbarState & 16)} label={props.locale === "en-US" ? "Quote" : "引用"} onRun={() => editor?.chain().focus().toggleBlockquote().run()} text="❝" />
+        <ToolbarButton label={props.locale === "en-US" ? "Horizontal rule" : "分割线"} onRun={() => editor?.chain().focus().setHorizontalRule().run()} text="—" />
       </div>
       <EditorContent editor={editor} />
     </div>
@@ -209,15 +203,15 @@ const resolveUrl = (source: string, baseUrl: string) => {
   return `${baseUrl.replace(/\/+$/, "")}${source}`;
 };
 
-const EDITOR_STYLES = `
-  :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+const getEditorStyles = (theme: "light" | "dark") => `
+  :root { color-scheme: ${theme}; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   * { box-sizing: border-box; }
-  html, body, #root { width: 100%; height: 100%; margin: 0; background: #fff; }
-  body { overflow: hidden; color: #0f172a; }
-  .edgeever-editor-shell { display: flex; height: 100%; min-height: 100%; flex-direction: column; background: #fff; }
-  .edgeever-editor-toolbar { display: flex; flex: 0 0 auto; gap: 6px; overflow-x: auto; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; scrollbar-width: none; }
+  html, body, #root { width: 100%; height: 100%; margin: 0; background: ${theme === "dark" ? "#0f172a" : "#fff"}; }
+  body { overflow: hidden; color: ${theme === "dark" ? "#f8fafc" : "#0f172a"}; }
+  .edgeever-editor-shell { display: flex; height: 100%; min-height: 100%; flex-direction: column; background: ${theme === "dark" ? "#0f172a" : "#fff"}; }
+  .edgeever-editor-toolbar { display: flex; flex: 0 0 auto; gap: 6px; overflow-x: auto; padding: 8px 10px; border-bottom: 1px solid ${theme === "dark" ? "#334155" : "#e2e8f0"}; background: ${theme === "dark" ? "#020617" : "#f8fafc"}; scrollbar-width: none; }
   .edgeever-editor-toolbar::-webkit-scrollbar { display: none; }
-  .edgeever-editor-toolbar button { min-width: 38px; height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: #fff; color: #475569; font: inherit; font-size: 14px; font-weight: 700; box-shadow: inset 0 0 0 1px #e2e8f0; }
+  .edgeever-editor-toolbar button { min-width: 38px; height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: ${theme === "dark" ? "#1e293b" : "#fff"}; color: ${theme === "dark" ? "#e2e8f0" : "#475569"}; font: inherit; font-size: 14px; font-weight: 700; box-shadow: inset 0 0 0 1px ${theme === "dark" ? "#475569" : "#e2e8f0"}; }
   .edgeever-editor-toolbar button.is-active { background: #ccfbf1; color: #0f766e; box-shadow: inset 0 0 0 1px #5eead4; }
   .tiptap { min-height: 100%; outline: none; }
   .edgeever-editor-shell > div:last-child { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
@@ -225,9 +219,9 @@ const EDITOR_STYLES = `
   .edgeever-editor-content > :first-child { margin-top: 0; }
   .edgeever-editor-content p.is-editor-empty:first-child::before { float: left; height: 0; color: #94a3b8; content: attr(data-placeholder); pointer-events: none; }
   .edgeever-editor-content h1, .edgeever-editor-content h2, .edgeever-editor-content h3 { line-height: 1.3; }
-  .edgeever-editor-content blockquote { margin-left: 0; padding-left: 14px; border-left: 3px solid #5eead4; color: #475569; }
+  .edgeever-editor-content blockquote { margin-left: 0; padding-left: 14px; border-left: 3px solid #5eead4; color: ${theme === "dark" ? "#cbd5e1" : "#475569"}; }
   .edgeever-editor-content pre { overflow-x: auto; border-radius: 10px; padding: 14px; background: #0f172a; color: #e2e8f0; }
-  .edgeever-editor-content code { border-radius: 4px; padding: 2px 4px; background: #f1f5f9; }
+  .edgeever-editor-content code { border-radius: 4px; padding: 2px 4px; background: ${theme === "dark" ? "#1e293b" : "#f1f5f9"}; }
   .edgeever-editor-content pre code { padding: 0; background: transparent; }
   .edgeever-editor-content img { display: block; max-width: 100%; height: auto; margin: 14px auto; border-radius: 10px; }
   .edgeever-editor-content hr { margin: 24px 0; border: 0; border-top: 1px solid #cbd5e1; }

@@ -27,6 +27,7 @@
         {
           "android": {
             "compileSdkVersion": 36,
+            "usesCleartextTraffic": true,
             "targetSdkVersion": 36,
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true

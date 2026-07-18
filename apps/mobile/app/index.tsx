@@ -1,10 +1,12 @@
 import * as SplashScreen from "expo-splash-screen";
 import { useIsRestoring } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Text } from "../src/components/LocalizedText";
 import { LoginScreen } from "../src/screens/LoginScreen";
 import { useSession } from "../src/lib/session";
 import { markStartup } from "../src/lib/startup-performance";
+import { resolveMobileThemeStyles, useMobileTheme } from "../src/lib/mobile-theme";
 
 const WorkspaceScreen = lazy(() =>
   import("../src/screens/WorkspaceScreen").then((module) => ({ default: module.WorkspaceScreen }))
@@ -34,12 +36,16 @@ export default function IndexScreen() {
   );
 }
 
-const StartupPlaceholder = ({ showBrand = false }: { showBrand?: boolean }) => (
-  <View style={styles.loading}>
-    {showBrand ? <Text style={styles.brand}>EdgeEver</Text> : null}
-    <ActivityIndicator color="#15803d" />
-  </View>
-);
+const StartupPlaceholder = ({ showBrand = false }: { showBrand?: boolean }) => {
+  const { resolvedTheme } = useMobileTheme();
+  const themedStyles = resolveMobileThemeStyles(styles, resolvedTheme);
+  return (
+    <View style={themedStyles.loading}>
+      {showBrand ? <Text style={themedStyles.brand}>EdgeEver</Text> : null}
+      <ActivityIndicator color="#15803d" />
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   loading: {
