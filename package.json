@@ -16,6 +16,7 @@
     "dev:api:remote": "bun scripts/run-wrangler.mjs dev --remote --port 8787",
     "dev:web": "vite --config apps/web/vite.config.ts --host 127.0.0.1 --port 5173",
     "dev:mobile": "bun --cwd apps/mobile expo start",
+    "prepare:mobile:icons": "bun scripts/prepare-mobile-icons.mjs",
     "build:android:fast": "bash scripts/build-android-local.sh fast",
     "build:android:play": "bash scripts/build-android-local.sh play",
     "build:android:play:local": "bun --env-file=${EDGE_EVER_ANDROID_ENV_FILE:-$HOME/.config/edgeever/android/signing.env} run build:android:play",

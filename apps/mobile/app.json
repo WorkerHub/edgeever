@@ -3,7 +3,8 @@
     "name": "EdgeEver",
     "slug": "edgeever",
     "scheme": "edgeever",
-    "version": "0.4.6",
+    "version": "0.4.7",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -13,9 +14,10 @@
     },
     "android": {
       "package": "org.edgeever.mobile",
-      "versionCode": 12,
+      "versionCode": 13,
       "adaptiveIcon": {
-        "backgroundColor": "#f8fafc"
+        "backgroundColor": "#d1fae5",
+        "foregroundImage": "./assets/adaptive-icon-foreground.png"
       }
     },
     "plugins": [

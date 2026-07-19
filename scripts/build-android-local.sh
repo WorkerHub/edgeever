@@ -38,8 +38,15 @@ fi
 
 cd "$PROJECT_ROOT"
 bun install --frozen-lockfile
+bun run prepare:mobile:icons
 
-PREBUILD_FINGERPRINT="$({ shasum apps/mobile/app.json bun.lock; } | shasum | awk '{print $1}')"
+PREBUILD_FINGERPRINT="$({
+  shasum \
+    apps/mobile/app.json \
+    apps/mobile/assets/adaptive-icon-foreground.svg \
+    apps/web/public/pwa-512x512.png \
+    bun.lock
+} | shasum | awk '{print $1}')"
 PREBUILD_STAMP="$ANDROID_DIR/.edgeever-prebuild-fingerprint"
 PREVIOUS_FINGERPRINT="$(test -f "$PREBUILD_STAMP" && cat "$PREBUILD_STAMP" || true)"
 
