@@ -27,3 +27,9 @@ export const toggleMobileMemoSelection = (
 
   return next;
 };
+
+export const getMobileCenteredScrollOffset = (
+  rowTop: number,
+  rowHeight: number,
+  viewportHeight: number
+): number => Math.max(0, rowTop - Math.max(0, viewportHeight - rowHeight) / 2);

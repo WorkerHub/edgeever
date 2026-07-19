@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MOBILE_UI_METRICS, toggleMobileMemoFilterMode, toggleMobileMemoSelection } from "./mobile-ui.ts";
+import { MOBILE_UI_METRICS, getMobileCenteredScrollOffset, toggleMobileMemoFilterMode, toggleMobileMemoSelection } from "./mobile-ui.ts";
 
 describe("mobile UI contract", () => {
   test("keeps core touch targets and navigation metrics stable", () => {
@@ -21,5 +21,10 @@ describe("mobile UI contract", () => {
     expect(Array.from(current)).toEqual(["memo-a"]);
     expect(Array.from(added)).toEqual(["memo-a", "memo-b"]);
     expect(Array.from(toggleMobileMemoSelection(added, "memo-a"))).toEqual(["memo-b"]);
+  });
+
+  test("centers a selected row without scrolling past the start", () => {
+    expect(getMobileCenteredScrollOffset(600, 48, 400)).toBe(424);
+    expect(getMobileCenteredScrollOffset(80, 48, 400)).toBe(0);
   });
 });

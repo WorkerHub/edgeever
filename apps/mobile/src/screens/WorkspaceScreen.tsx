@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient, type UseMutationResult } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import Constants from "expo-constants";
@@ -60,6 +60,7 @@ import {
   Image as RNImage,
   type ImageStyle,
   InteractionManager,
+  type LayoutChangeEvent,
   Linking,
   Modal,
   Platform,
@@ -78,7 +79,7 @@ import { Alert, Pressable, Text, TextInput } from "../components/LocalizedText";
 import Markdown, { type RenderRules } from "react-native-markdown-display";
 import { SvgXml } from "react-native-svg";
 import { buildRevisionDiffRows, createExcerpt, docToMarkdown, docToText, getNotebookDescendantIds, markdownToDoc, type ApiToken, type AuthUser, type MemoDetail, type MemoRevision, type MemoSummary, type Notebook, type ResourceListItem, type RevisionDiffRow, type TagSummary, type TiptapDoc } from "@edgeever/shared";
-import { MOBILE_UI_METRICS, toggleMobileMemoFilterMode, toggleMobileMemoSelection } from "@edgeever/shared/mobile-ui";
+import { MOBILE_UI_METRICS, getMobileCenteredScrollOffset, toggleMobileMemoFilterMode, toggleMobileMemoSelection } from "@edgeever/shared/mobile-ui";
 import { clearMobileMemoDraft, clearMobileNewMemoDraft, readMobileMemoDraft, readMobileNewMemoDraft, writeMobileMemoDraft, writeMobileNewMemoDraft, type MobileMemoDraft } from "../lib/mobile-drafts";
 import {
   readMobileImageCompressionEnabled,
@@ -1505,6 +1506,48 @@ const SheetOptionRow = ({ active, icon, label, onPress }: { active: boolean; ico
   </Pressable>
 );
 
+const useAutoCenterSelectedScrollRow = (visible: boolean, selectedKey: string) => {
+  const scrollRef = useRef<ScrollView>(null);
+  const viewportHeightRef = useRef(0);
+  const rowLayoutsRef = useRef(new Map<string, { height: number; y: number }>());
+  const hasCenteredRef = useRef(false);
+
+  const centerSelectedRow = useCallback(() => {
+    const selectedLayout = rowLayoutsRef.current.get(selectedKey);
+    const viewportHeight = viewportHeightRef.current;
+    if (!visible || hasCenteredRef.current || !selectedLayout || viewportHeight <= 0) {
+      return;
+    }
+
+    hasCenteredRef.current = true;
+    const y = getMobileCenteredScrollOffset(selectedLayout.y, selectedLayout.height, viewportHeight);
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ animated: false, y }));
+  }, [selectedKey, visible]);
+
+  useLayoutEffect(() => {
+    hasCenteredRef.current = false;
+    const frame = requestAnimationFrame(centerSelectedRow);
+    return () => cancelAnimationFrame(frame);
+  }, [centerSelectedRow]);
+
+  const onViewportLayout = useCallback((event: LayoutChangeEvent) => {
+    viewportHeightRef.current = event.nativeEvent.layout.height;
+    hasCenteredRef.current = false;
+    centerSelectedRow();
+  }, [centerSelectedRow]);
+
+  const onRowLayout = useCallback((rowKey: string, event: LayoutChangeEvent) => {
+    const { height, y } = event.nativeEvent.layout;
+    rowLayoutsRef.current.set(rowKey, { height, y });
+    if (rowKey === selectedKey) {
+      hasCenteredRef.current = false;
+      centerSelectedRow();
+    }
+  }, [centerSelectedRow, selectedKey]);
+
+  return { onRowLayout, onViewportLayout, scrollRef };
+};
+
 const NotebookPickerModal = ({
   activeNotebookId,
   notebooks,
@@ -1522,6 +1565,7 @@ const NotebookPickerModal = ({
   const safeAreaInsets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState("");
   const [collapsedNotebookIds, setCollapsedNotebookIds] = useState<Set<string>>(() => new Set());
+  const selectedScroll = useAutoCenterSelectedScrollRow(visible, activeNotebookId);
   const notebookOptions = flattenNotebooks(notebooks);
   const searchQuery = searchText.trim();
   const childNotebookIds = getNotebookParentIdSet(notebooks);
@@ -1574,7 +1618,12 @@ const NotebookPickerModal = ({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.notebookPickerContent} style={styles.notebookPickerScroll}>
+          <ScrollView
+            contentContainerStyle={styles.notebookPickerContent}
+            onLayout={selectedScroll.onViewportLayout}
+            ref={selectedScroll.scrollRef}
+            style={styles.notebookPickerScroll}
+          >
           <View style={styles.notebookPickerSearchBox}>
             <Search color="#64748b" size={18} />
             <TextInput
@@ -1598,6 +1647,7 @@ const NotebookPickerModal = ({
             accessibilityLabel={activeNotebookId === ALL_NOTES_ID ? "当前：全部笔记" : "切换到全部笔记"}
             accessibilityRole="button"
             accessibilityState={{ selected: activeNotebookId === ALL_NOTES_ID }}
+            onLayout={(event) => selectedScroll.onRowLayout(ALL_NOTES_ID, event)}
             onPress={() => onSelect(ALL_NOTES_ID)}
             style={[styles.notebookPickerRow, styles.notebookPickerAllRow, activeNotebookId === ALL_NOTES_ID && styles.notebookPickerRowActive]}
           >
@@ -1625,6 +1675,7 @@ const NotebookPickerModal = ({
           {visibleNotebookOptions.map(({ depth, notebook }) => (
             <View
               key={notebook.id}
+              onLayout={(event) => selectedScroll.onRowLayout(notebook.id, event)}
               style={[styles.notebookPickerRow, activeNotebookId === notebook.id && styles.notebookPickerRowActive, depth > 0 && { marginLeft: Math.min(depth * 18, 54) }]}
             >
               {childNotebookIds.has(notebook.id) && !searchQuery ? (
@@ -4620,6 +4671,7 @@ const MoveSelectionModal = ({
 }) => {
   const [searchText, setSearchText] = useState("");
   const notebookOptions = flattenNotebooks(notebooks);
+  const selectedScroll = useAutoCenterSelectedScrollRow(visible, selectedNotebookId);
 
   useEffect(() => {
     if (visible) {
@@ -4660,7 +4712,12 @@ const MoveSelectionModal = ({
               ) : null}
             </View>
           </View>
-          <ScrollView contentContainerStyle={styles.moveSelectionList} style={styles.listActionSheetScroll}>
+          <ScrollView
+            contentContainerStyle={styles.moveSelectionList}
+            onLayout={selectedScroll.onViewportLayout}
+            ref={selectedScroll.scrollRef}
+            style={styles.listActionSheetScroll}
+          >
             <NotebookTreeOptionRows
               collapsible={false}
               compact
@@ -4673,6 +4730,7 @@ const MoveSelectionModal = ({
               showDepthPrefix={false}
               showMemoCount={false}
               selectedNotebookId={selectedNotebookId}
+              onRowLayout={selectedScroll.onRowLayout}
             />
             {isMoving ? <ActivityIndicator color="#0f172a" style={styles.listLoadingFooter} /> : null}
           </ScrollView>
@@ -4808,6 +4866,7 @@ const NotebookTreeOptionRows = ({
   disabled = false,
   emptyIconSize,
   notebooks,
+  onRowLayout,
   onSelect,
   options,
   searchText,
@@ -4820,6 +4879,7 @@ const NotebookTreeOptionRows = ({
   disabled?: boolean;
   emptyIconSize: number;
   notebooks: Notebook[];
+  onRowLayout?: (notebookId: string, event: LayoutChangeEvent) => void;
   onSelect: (notebookId: string) => void;
   options: NotebookOption[];
   searchText: string;
@@ -4862,6 +4922,7 @@ const NotebookTreeOptionRows = ({
       {visibleNotebookOptions.map(({ depth, notebook }) => (
         <View
           key={notebook.id}
+          onLayout={onRowLayout ? (event) => onRowLayout(notebook.id, event) : undefined}
           style={[
             styles.moveNotebookRow,
             compact && styles.moveNotebookRowCompact,
