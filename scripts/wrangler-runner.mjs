@@ -20,6 +20,22 @@ export const buildWranglerEnvironment = (args, env = process.env) => ({
   ...(isD1MigrationApplyCommand(args) ? { CI: "true" } : {}),
 });
 
+export const buildWranglerSpawnOptions = (args, options = {}) => {
+  if (!isD1MigrationApplyCommand(args) || options.input !== undefined) {
+    return options;
+  }
+
+  return {
+    ...options,
+    // Wrangler 4.105 can still prompt in an interactive Windows Git Bash even
+    // when CI=true. Explicitly answer yes so automated deployments never wait.
+    input: "y\n",
+    ...(options.stdio === "inherit"
+      ? { stdio: ["pipe", "inherit", "inherit"] }
+      : {}),
+  };
+};
+
 export const runWranglerSync = (args, options = {}) => {
   const cwd = options.cwd ?? resolve(".");
   const cliPath = resolveWranglerCliPath(cwd);
@@ -34,10 +50,11 @@ export const runWranglerSync = (args, options = {}) => {
   }
 
   const { runtimeExecutable, ...spawnOptions } = options;
+  const finalSpawnOptions = buildWranglerSpawnOptions(args, spawnOptions);
   return spawnSync(runtimeExecutable ?? process.execPath, [cliPath, ...args], {
     cwd,
     shell: false,
-    ...spawnOptions,
-    env: buildWranglerEnvironment(args, spawnOptions.env),
+    ...finalSpawnOptions,
+    env: buildWranglerEnvironment(args, finalSpawnOptions.env),
   });
 };

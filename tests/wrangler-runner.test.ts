@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildWranglerInvocation,
   buildWranglerEnvironment,
+  buildWranglerSpawnOptions,
   isD1MigrationApplyCommand,
   resolveWranglerCliPath,
   runWranglerSync,
@@ -36,5 +37,9 @@ describe("cross-platform Wrangler runner", () => {
       CI: "true",
     });
     expect(buildWranglerEnvironment(["d1", "migrations", "list", "DB"], {})).not.toHaveProperty("CI");
+    expect(buildWranglerSpawnOptions(args, { stdio: "inherit" })).toEqual({
+      input: "y\n",
+      stdio: ["pipe", "inherit", "inherit"],
+    });
   });
 });
