@@ -35,6 +35,8 @@ jobs:
       EDGE_EVER_DEMO_MODE: "true"
       EDGE_EVER_DEMO_RESET_CRON: "0 19 * * *"
       DEMO_DEPLOY_DOMAIN: ${{ secrets.EDGE_EVER_DEMO_CUSTOM_DOMAIN }}
+      EDGE_EVER_DEPLOYMENT_TRIGGER: ${{ github.event_name == 'release' && 'github_release' || 'manual' }}
+      EDGE_EVER_DEPLOYMENT_METHOD: "github_actions"
 
     steps:
       - name: Checkout release

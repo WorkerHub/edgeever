@@ -54,6 +54,12 @@ const detectOperatingSystem = (userAgent: string, platform: string) => {
   return null;
 };
 
+const getDeploymentDescription = (t: (key: string) => string) => {
+  const trigger = t(`systemInfo.deploymentTriggers.${__EDGEEVER_DEPLOYMENT_TRIGGER__}`);
+  const method = t(`systemInfo.deploymentMethods.${__EDGEEVER_DEPLOYMENT_METHOD__}`);
+  return `${trigger} · ${method}`;
+};
+
 export const getWebSystemInfoItems = (
   t: (key: string) => string,
   language: string
@@ -73,6 +79,7 @@ export const getWebSystemInfoItems = (
         : t("systemInfo.unknown"),
     },
     { label: t("systemInfo.build"), value: __EDGEEVER_BUILD_LABEL__ },
+    { label: t("systemInfo.deployment"), value: getDeploymentDescription(t) },
     {
       label: t("systemInfo.browser"),
       value: detectBrowser(userAgent) ?? t("systemInfo.unknown"),
