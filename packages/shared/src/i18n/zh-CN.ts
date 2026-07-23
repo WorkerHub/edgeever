@@ -157,6 +157,7 @@ export const zhCN = {
       "zen-whitespace": "留白禅意风",
       "moyu-ticket": "摸鱼票据风",
       "olive-journal": "橄榄手记",
+      "mdnice-nenqing": "嫩青（MDNice）",
     },
     mermaidThemes: {
       "zinc-light": "Zinc 浅色",
@@ -531,6 +532,9 @@ export const zhCN = {
     typeInput: "输入",
     clipboardReadFailed: "读取剪贴板失败。请确认浏览器允许剪贴板权限。",
     characterCount: "{{count}} 字",
+    copyToWeChat: "复制到公众号",
+    copiedToWeChat: "已复制",
+    copyToWeChatFailed: "复制失败",
   },
   editorToolbar: {
     toolbar: "编辑器工具栏",
@@ -557,6 +561,14 @@ export const zhCN = {
     mermaidEmpty: "在下方输入 Mermaid 源码以生成图表。",
     mermaidSource: "Mermaid 源码",
     horizontalRule: "分割线",
+    themeBlock: "主题化组件",
+    deleteThemeBlock: "删除主题化组件",
+    themeBlocks: {
+      intro: "引言卡片",
+      "key-point": "重点观点卡",
+      callout: "提示块",
+      chapter: "章节标题块",
+    },
     table: "表格",
     insertTable: "插入 3 × 3 表格",
     addTableRow: "在下方添加行",

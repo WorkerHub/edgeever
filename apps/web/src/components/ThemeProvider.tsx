@@ -29,6 +29,7 @@ export const EDITOR_THEME_NAMES = [
   "zen-whitespace",
   "moyu-ticket",
   "olive-journal",
+  "mdnice-nenqing",
 ] as const;
 export type EditorThemeName = (typeof EDITOR_THEME_NAMES)[number];
 

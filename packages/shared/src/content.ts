@@ -72,7 +72,7 @@ export const resolveMemoContentDoc = (
   const currentDoc = contentJson && Array.isArray(contentJson.content)
     ? upgradeLegacyAttachmentLinks(contentJson)
     : emptyDoc();
-  if (!contentMarkdown?.trim() || docContainsNodeType(currentDoc, "table")) {
+  if (!contentMarkdown?.trim() || docContainsNodeType(currentDoc, "table") || docContainsNodeType(currentDoc, "edgeeverThemeBlock")) {
     return currentDoc;
   }
 
@@ -215,7 +215,36 @@ export const docToMarkdown = (doc: unknown): string => {
     return "";
   }
 
-  return markdownManager.serialize(doc as Parameters<typeof markdownManager.serialize>[0]);
+  return markdownManager.serialize(stripEditorOnlyNodes(doc) as Parameters<typeof markdownManager.serialize>[0]);
+};
+
+/**
+ * Theme blocks are richer editor-only nodes. Markdown has no portable equivalent,
+ * so exports keep their text as a quoted section instead of silently dropping it.
+ */
+const stripEditorOnlyNodes = (doc: unknown): unknown => {
+  if (!doc || typeof doc !== "object") {
+    return doc;
+  }
+
+  const node = doc as { type?: unknown; attrs?: Record<string, unknown>; content?: unknown };
+  if (node.type === "edgeeverThemeBlock") {
+    const label = getStringAttr(node.attrs, "kind");
+    const content = Array.isArray(node.content) ? node.content : [];
+    return {
+      type: "blockquote",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: label ? `[${label}]` : "[主题化组件]" }] },
+        ...content.map(stripEditorOnlyNodes),
+      ],
+    };
+  }
+
+  if (!Array.isArray(node.content)) {
+    return doc;
+  }
+
+  return { ...node, content: node.content.map(stripEditorOnlyNodes) };
 };
 
 const getStringAttr = (attrs: Record<string, unknown> | undefined, key: string) => {

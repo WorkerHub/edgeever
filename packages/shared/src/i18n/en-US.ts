@@ -157,6 +157,7 @@ export const enUS = {
       "zen-whitespace": "Zen Whitespace",
       "moyu-ticket": "Moyu Ticket",
       "olive-journal": "Olive Journal",
+      "mdnice-nenqing": "Tender Green (MDNice)",
     },
     mermaidThemes: {
       "zinc-light": "Zinc Light",
@@ -531,6 +532,9 @@ export const enUS = {
     typeInput: "Type",
     clipboardReadFailed: "Could not read the clipboard. Check that your browser allows clipboard access.",
     characterCount: "{{count}} chars",
+    copyToWeChat: "Copy to WeChat",
+    copiedToWeChat: "Copied",
+    copyToWeChatFailed: "Copy failed",
   },
   editorToolbar: {
     toolbar: "Editor toolbar",
@@ -557,6 +561,14 @@ export const enUS = {
     mermaidEmpty: "Enter Mermaid source below to generate a diagram.",
     mermaidSource: "Mermaid source",
     horizontalRule: "Divider",
+    themeBlock: "Themed block",
+    deleteThemeBlock: "Delete themed block",
+    themeBlocks: {
+      intro: "Intro card",
+      "key-point": "Key point card",
+      callout: "Callout block",
+      chapter: "Chapter heading",
+    },
     table: "Table",
     insertTable: "Insert 3 × 3 table",
     addTableRow: "Add row below",

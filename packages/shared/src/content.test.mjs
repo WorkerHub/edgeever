@@ -72,3 +72,33 @@ describe("Mermaid Markdown conversion", () => {
     expect(docToMarkdown(doc)).toBe(markdown);
   });
 });
+
+describe("Theme block compatibility", () => {
+  test("keeps themed blocks in the richer JSON document when Markdown is also present", () => {
+    const doc = {
+      type: "doc",
+      content: [{
+        type: "edgeeverThemeBlock",
+        attrs: { kind: "key-point" },
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Important" }] }],
+      }],
+    };
+
+    expect(resolveMemoContentDoc(doc, "Important")).toBe(doc);
+  });
+
+  test("exports themed blocks as readable quoted Markdown instead of dropping their text", () => {
+    const doc = {
+      type: "doc",
+      content: [{
+        type: "edgeeverThemeBlock",
+        attrs: { kind: "intro" },
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Read this first" }] }],
+      }],
+    };
+
+    const markdown = docToMarkdown(doc);
+    expect(markdown).toContain("\\[intro\\]");
+    expect(markdown).toContain("Read this first");
+  });
+});

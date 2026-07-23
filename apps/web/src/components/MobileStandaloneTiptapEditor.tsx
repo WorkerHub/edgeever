@@ -40,6 +40,7 @@ import {
 } from "@/lib/mobile-editor-standalone";
 import { getMemoUpdateQueueId, isMemoUpdateAlreadyApplied, queueMemoUpdate, shouldQueueMemoSaveError } from "@/lib/sync-queue";
 import { EdgeEverCodeBlock, codeBlockLowlight } from "@/lib/code-block";
+import { ThemeBlock } from "./ThemeBlock";
 
 type ListNotebooksResponse = {
   notebooks: Notebook[];
@@ -172,6 +173,7 @@ export const MobileStandaloneTiptapEditor = ({
     extensions: [
       StarterKit.configure({ codeBlock: false }),
       EdgeEverCodeBlock.configure({ lowlight: codeBlockLowlight, defaultLanguage: "plaintext" }),
+      ThemeBlock,
       Image.configure({
         allowBase64: false,
         inline: false,
