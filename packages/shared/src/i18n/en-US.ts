@@ -870,6 +870,11 @@ export const enUS = {
     imageSizeLarge: "Large",
     imageSizeFull: "Full",
     resizeImage: "Drag to resize image width",
+    previewImage: "Preview image",
+    imageViewer: "Image viewer",
+    imageZoomIn: "Zoom in image",
+    imageZoomOut: "Zoom out image",
+    closeImagePreview: "Close image viewer",
     resourceActions: {
       download: "Download",
       saveAs: "Export",

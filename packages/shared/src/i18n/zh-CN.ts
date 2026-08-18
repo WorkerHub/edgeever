@@ -870,6 +870,11 @@ export const zhCN = {
     imageSizeLarge: "较大",
     imageSizeFull: "铺满",
     resizeImage: "拖拽调整图片宽度",
+    previewImage: "预览大图",
+    imageViewer: "图片查看器",
+    imageZoomIn: "放大图片",
+    imageZoomOut: "缩小图片",
+    closeImagePreview: "关闭图片查看器",
     resourceActions: {
       download: "下载",
       saveAs: "导出",
