@@ -7,6 +7,8 @@ export const PLUGIN_PERMISSIONS = [
   "notes:delete",
   "metadata:read",
   "metadata:write",
+  "resources:read",
+  "resources:write",
   "network",
   "storage",
   "secrets",
@@ -32,7 +34,28 @@ export interface PluginManifest {
   platforms?: ExtensionPlatform[];
   permissions: PluginPermission[];
   networkHosts?: string[];
+  settings?: PluginSettingsSchema;
 }
+
+interface PluginSettingBase {
+  key: string;
+  label: string;
+  description?: string;
+  required?: boolean;
+}
+
+export type PluginSettingField =
+  | (PluginSettingBase & { type: "text"; default?: string; placeholder?: string })
+  | (PluginSettingBase & { type: "secret"; placeholder?: string })
+  | (PluginSettingBase & { type: "number"; default?: number; min?: number; max?: number; step?: number })
+  | (PluginSettingBase & { type: "boolean"; default?: boolean })
+  | (PluginSettingBase & { type: "select"; default?: string; options: Array<{ value: string; label: string }> });
+
+export interface PluginSettingsSchema {
+  fields: PluginSettingField[];
+}
+
+export type PluginSettingValue = string | number | boolean;
 
 export const THEME_TOKEN_NAMES = [
   "color.background",
@@ -152,6 +175,31 @@ export interface PluginNotebook {
   memoCount: number;
 }
 
+export interface PluginNoteRevision {
+  id: string;
+  noteId: string;
+  revision: number;
+  title: string | null;
+  tags: string[];
+  contentMarkdown: string;
+  contentText: string;
+  createdAt: string;
+}
+
+export interface PluginResource {
+  id: string;
+  noteId: string;
+  kind: "image" | "attachment";
+  mimeType: string | null;
+  filename: string | null;
+  byteSize: number;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+  updatedAt: string;
+  url: string;
+}
+
 export interface PluginTag {
   name: string;
   noteCount: number;
@@ -163,6 +211,7 @@ export type PluginEventMap = {
   "note.deleted": { noteId: string };
   "tag.changed": { previousName?: string; name?: string; deleted?: boolean };
   "workspace.sync-queue-changed": Record<string, never>;
+  "workspace.synced": { bootstrapped: boolean; changed: number };
 };
 
 export interface PluginCommand {
@@ -194,9 +243,19 @@ export interface PluginContext {
     create(input: PluginNoteCreateInput): Promise<PluginNote>;
     update(noteId: string, input: PluginNoteUpdateInput): Promise<PluginNote>;
     delete(noteId: string, options?: { permanent?: boolean }): Promise<void>;
+    move(noteIds: string[], notebookId: string): Promise<number>;
+    pin(noteIds: string[], isPinned: boolean): Promise<number>;
+    restore(noteId: string): Promise<PluginNote>;
+    revisions: {
+      list(noteId: string): Promise<PluginNoteRevision[]>;
+      restore(noteId: string, revisionId: string): Promise<PluginNote>;
+    };
   };
   notebooks: {
     list(): Promise<PluginNotebook[]>;
+    create(input: { name: string; parentId?: string | null }): Promise<PluginNotebook>;
+    update(notebookId: string, input: { name?: string; parentId?: string | null; sortOrder?: number }): Promise<PluginNotebook>;
+    delete(notebookId: string): Promise<void>;
   };
   tags: {
     list(): Promise<PluginTag[]>;
@@ -223,6 +282,17 @@ export interface PluginContext {
     getSelection(): Promise<PluginEditorSelection | null>;
     replaceSelection(contentMarkdown: string): Promise<void>;
     insertAtCursor(contentMarkdown: string): Promise<void>;
+  };
+  resources: {
+    list(noteId?: string): Promise<PluginResource[]>;
+    upload(noteId: string, file: File): Promise<PluginResource>;
+    rename(resourceId: string, filename: string): Promise<PluginResource>;
+    delete(resourceId: string): Promise<void>;
+  };
+  settings: {
+    get(key: string): Promise<PluginSettingValue | null>;
+    set(key: string, value: PluginSettingValue): Promise<void>;
+    remove(key: string): Promise<void>;
   };
   network: {
     fetch(input: string, init?: RequestInit): Promise<Response>;
@@ -300,6 +370,73 @@ const normalizeThemeTokens = (value: unknown): ThemeTokens => {
   return tokens;
 };
 
+const SETTING_KEY_PATTERN = /^[a-z][a-z0-9._-]*$/;
+
+const normalizePluginSettings = (value: unknown): PluginSettingsSchema => {
+  if (!isRecord(value) || !Array.isArray(value.fields)) throw new Error("Plugin settings must contain a fields array.");
+  if (value.fields.length > 50) throw new Error("Plugin settings cannot contain more than 50 fields.");
+  const keys = new Set<string>();
+  const fields = value.fields.map((field): PluginSettingField => {
+    if (!isRecord(field) || typeof field.key !== "string" || !SETTING_KEY_PATTERN.test(field.key)) {
+      throw new Error("Plugin setting keys must start with a lowercase letter and contain only lowercase letters, numbers, dots, dashes, or underscores.");
+    }
+    if (keys.has(field.key)) throw new Error(`Duplicate plugin setting key: ${field.key}`);
+    keys.add(field.key);
+    if (typeof field.label !== "string" || !field.label.trim() || field.label.length > 200) throw new Error(`Plugin setting ${field.key} requires a label of at most 200 characters.`);
+    if (typeof field.description === "string" && field.description.length > 1000) throw new Error(`Plugin setting ${field.key} description is too long.`);
+    const common = {
+      key: field.key,
+      label: field.label.trim(),
+      ...(typeof field.description === "string" && field.description.trim() ? { description: field.description.trim() } : {}),
+      ...(field.required === true ? { required: true } : {}),
+    };
+    if (field.type === "text" || field.type === "secret") {
+      if (field.type === "secret" && field.default !== undefined) throw new Error(`Secret setting ${field.key} cannot declare a default value.`);
+      if (field.default !== undefined && typeof field.default !== "string") throw new Error(`Plugin setting ${field.key} default must be a string.`);
+      if (field.placeholder !== undefined && typeof field.placeholder !== "string") throw new Error(`Plugin setting ${field.key} placeholder must be a string.`);
+      return {
+        ...common,
+        type: field.type,
+        ...(typeof field.default === "string" ? { default: field.default } : {}),
+        ...(typeof field.placeholder === "string" ? { placeholder: field.placeholder } : {}),
+      } as PluginSettingField;
+    }
+    if (field.type === "number") {
+      for (const key of ["default", "min", "max", "step"] as const) {
+        if (field[key] !== undefined && (typeof field[key] !== "number" || !Number.isFinite(field[key]))) {
+          throw new Error(`Plugin setting ${field.key} ${key} must be a finite number.`);
+        }
+      }
+      if (typeof field.min === "number" && typeof field.max === "number" && field.min > field.max) throw new Error(`Plugin setting ${field.key} min cannot exceed max.`);
+      if (typeof field.step === "number" && field.step <= 0) throw new Error(`Plugin setting ${field.key} step must be positive.`);
+      if (typeof field.default === "number" && ((typeof field.min === "number" && field.default < field.min) || (typeof field.max === "number" && field.default > field.max))) {
+        throw new Error(`Plugin setting ${field.key} default is outside its allowed range.`);
+      }
+      return { ...common, type: "number", ...Object.fromEntries(["default", "min", "max", "step"].flatMap((key) => typeof field[key] === "number" ? [[key, field[key]]] : [])) } as PluginSettingField;
+    }
+    if (field.type === "boolean") {
+      if (field.default !== undefined && typeof field.default !== "boolean") throw new Error(`Plugin setting ${field.key} default must be a boolean.`);
+      return { ...common, type: "boolean", ...(typeof field.default === "boolean" ? { default: field.default } : {}) };
+    }
+    if (field.type === "select") {
+      if (!Array.isArray(field.options) || field.options.length === 0 || field.options.length > 100) throw new Error(`Plugin setting ${field.key} requires between 1 and 100 select options.`);
+      const optionValues = new Set<string>();
+      const options = field.options.map((option) => {
+        if (!isRecord(option) || typeof option.value !== "string" || !option.value || typeof option.label !== "string" || !option.label.trim()) {
+          throw new Error(`Plugin setting ${field.key} has an invalid select option.`);
+        }
+        if (optionValues.has(option.value)) throw new Error(`Plugin setting ${field.key} has a duplicate select value.`);
+        optionValues.add(option.value);
+        return { value: option.value, label: option.label.trim() };
+      });
+      if (field.default !== undefined && (typeof field.default !== "string" || !optionValues.has(field.default))) throw new Error(`Plugin setting ${field.key} default must match a select option.`);
+      return { ...common, type: "select", options, ...(typeof field.default === "string" ? { default: field.default } : {}) };
+    }
+    throw new Error(`Plugin setting ${field.key} has an unsupported type.`);
+  });
+  return { fields };
+};
+
 export const parseExtensionManifest = (value: unknown): ExtensionManifest => {
   if (!isRecord(value)) throw new Error("Extension manifest must be an object.");
   assertCommonManifest(value);
@@ -328,7 +465,8 @@ export const parseExtensionManifest = (value: unknown): ExtensionManifest => {
       : Array.isArray(value.platforms) && value.platforms.every((platform) => ["web", "desktop", "android", "ios"].includes(String(platform)))
         ? [...new Set(value.platforms.map(String))] as ExtensionPlatform[]
         : (() => { throw new Error("Plugin platforms contains an unsupported platform."); })();
-    return { ...value, type: "plugin", permissions, networkHosts, platforms } as PluginManifest;
+    const settings = value.settings === undefined ? undefined : normalizePluginSettings(value.settings);
+    return { ...value, type: "plugin", permissions, networkHosts, platforms, settings } as PluginManifest;
   }
 
   if (value.type === "theme") {

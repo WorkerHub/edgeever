@@ -46,6 +46,7 @@ import { createDesktopRepository } from "@/lib/desktop-repository";
 import { isBrowserOffline } from "@/lib/network-status";
 import { notifySyncQueueDeferred } from "@/lib/sync-events";
 import { isActiveLocalMemoUpdateStatus, shouldAcceptRemoteMemoDetail } from "@/lib/memo-detail-freshness";
+import { withRepositoryMutationEvents } from "@/lib/repository-events";
 
 export type EdgeEverRepository = {
   listNotebooks(): Promise<{ notebooks: Notebook[] }>;
@@ -549,7 +550,7 @@ export const createWebRepository = (scope: string): EdgeEverRepository => {
 
 export const createRepository = (scope: string): EdgeEverRepository => {
   if (typeof window !== "undefined" && window.edgeeverDesktop?.isAvailable) {
-    return createDesktopRepository();
+    return withRepositoryMutationEvents(createDesktopRepository(), scope);
   }
-  return createWebRepository(scope);
+  return withRepositoryMutationEvents(createWebRepository(scope), scope);
 };

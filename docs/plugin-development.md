@@ -44,6 +44,8 @@ GitHub plugins must use `./main.js` as `entry`, and `main.js` must be a single-f
 
 EdgeEver checks for updates when the Plugin Marketplace opens, when the window regains focus, and every 30 minutes, but never installs silently. The user must click Update and confirm. If a new version adds plugin permissions or network hosts, the confirmation lists the additional access. For GitHub distribution, the Release `manifest.json` must exactly match the default-branch manifest used for the update prompt or installation is rejected. Marketplace installs only follow newer versions verified in the Registry.
 
+Updates use a rollback-capable switch. Old and new package versions are cached separately. If the new version cannot activate, EdgeEver restores the previous manifest, enabled state, and package instead of leaving the plugin broken or disabled.
+
 Users can freely install without marketplace admission by pasting this into the standalone Plugin Marketplace page:
 
 ```text
@@ -84,7 +86,7 @@ Registry format:
 }
 ```
 
-Marketplace installs display a Verified badge. GitHub and manifest sideloads clearly display their unverified source, but EdgeEver does not block them. Uninstalling also deletes the device-local cached package.
+Marketplace installs display a Verified badge. GitHub and manifest sideloads clearly display their unverified source, but EdgeEver does not block them. Uninstalling also deletes all device-local cached package versions, ordinary plugin storage for the current workspace, and Secret Storage.
 
 Supported permissions:
 
@@ -93,6 +95,8 @@ Supported permissions:
 - `notes:delete`
 - `metadata:read`
 - `metadata:write`
+- `resources:read`
+- `resources:write`
 - `network`
 - `storage`
 - `secrets`
@@ -138,6 +142,23 @@ export default definePlugin({
 
 Every registration returns a disposer. The host also disposes registered commands and events automatically when a plugin is disabled.
 
+### SDK package
+
+`@edgeever/plugin-api` is a publish-ready ESM package with generated JavaScript and TypeScript declarations. In the EdgeEver repository, rebuild it after changing public contracts:
+
+```sh
+bun run build:plugin-api
+```
+
+Maintainers can inspect the exact public package without publishing it:
+
+```sh
+cd packages/plugin-api
+npm pack --dry-run
+```
+
+The package build contains only `dist/index.js`, `dist/index.d.ts`, its README, and package metadata. Plugin projects should bundle SDK runtime helpers into their single-file `main.js`; they must not leave a runtime import of `@edgeever/plugin-api` in the distributed bundle.
+
 ## Notes API
 
 ```ts
@@ -146,14 +167,64 @@ context.notes.get(noteId);
 context.notes.create({ notebookId, title, contentMarkdown, tags });
 context.notes.update(noteId, { title, contentMarkdown, tags });
 context.notes.delete(noteId, { permanent: false });
+context.notes.move([noteId], notebookId);
+context.notes.pin([noteId], true);
+context.notes.restore(noteId);
+context.notes.revisions.list(noteId);
+context.notes.revisions.restore(noteId, revisionId);
 context.notebooks.list();
+context.notebooks.create({ name, parentId });
+context.notebooks.update(notebookId, { name, parentId, sortOrder });
+context.notebooks.delete(notebookId);
 context.tags.list();
 context.tags.rename("old", "new");
 context.tags.delete("unused");
 ```
 
 All writes go through EdgeEver's shared repository/business layer, including offline queueing and desktop adapters. Plugins do not access a storage implementation directly.
-Notebook and tag reads require `metadata:read`; tag changes require `metadata:write`.
+`notes.update()` requires both `notes:write` and `notes:read` because the update flow reads the current revision and returns the complete updated note. This prevents write access from becoming an indirect note-content read capability.
+Notebook and tag reads require `metadata:read`; notebook and tag changes require `metadata:write`.
+
+Attachments use their own permissions and still flow through the same Web/Desktop repository adapters:
+
+```ts
+context.resources.list(noteId); // resources:read
+context.resources.upload(noteId, file); // resources:write
+context.resources.rename(resourceId, filename);
+context.resources.delete(resourceId);
+```
+
+Subscribing to `note.*` events requires `notes:read`, and subscribing to `tag.changed` requires `metadata:read`. The sync-queue status event carries no note or metadata content and requires no additional read permission.
+
+Successful note and tag changes made through EdgeEver's normal repository layer—including user actions and plugin actions—feed the same plugin event stream. `workspace.synced` reports completed repository sync passes. Failed mutations do not emit success events.
+
+## Host-rendered settings
+
+Plugins can declare settings that EdgeEver renders consistently in plugin details. Supported field types are `text`, `secret`, `number`, `boolean`, and `select`:
+
+```json
+{
+  "settings": {
+    "fields": [
+      { "key": "endpoint", "type": "text", "label": "API endpoint", "required": true },
+      { "key": "token", "type": "secret", "label": "API token", "required": true },
+      { "key": "format", "type": "select", "label": "Format", "default": "md", "options": [
+        { "value": "md", "label": "Markdown" },
+        { "value": "html", "label": "HTML" }
+      ] }
+    ]
+  }
+}
+```
+
+Plugins read the validated values through `context.settings`. Secret values are encrypted in the device-local Secret Storage, are never embedded as Manifest defaults, and are not filled back into the settings form:
+
+```ts
+const endpoint = await context.settings.get("endpoint");
+const token = await context.settings.get("token");
+await context.settings.set("format", "html");
+await context.settings.remove("token");
+```
 
 ## Storage and network
 

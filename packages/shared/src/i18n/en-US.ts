@@ -348,6 +348,13 @@ export const enUS = {
     empty: "No plugins or themes are installed on this device.",
     toggle: "Enable or disable {{name}}",
     uninstall: "Uninstall",
+    settings: {
+      title: "Plugin settings",
+      saved: "Settings saved on this device.",
+      required: "{{name}} is required.",
+      secretConfigured: "Configured — leave blank to keep unchanged",
+      none: "None",
+    },
     details: {
       title: "Plugin details",
       open: "View details for {{name}}",

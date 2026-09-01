@@ -348,6 +348,13 @@ export const zhCN = {
     empty: "当前设备尚未安装插件或主题。",
     toggle: "启用或停用 {{name}}",
     uninstall: "卸载",
+    settings: {
+      title: "插件设置",
+      saved: "设置已保存到当前设备。",
+      required: "{{name}} 为必填项。",
+      secretConfigured: "已配置，留空表示保持不变",
+      none: "无",
+    },
     details: {
       title: "插件详情",
       open: "查看 {{name}} 详情",

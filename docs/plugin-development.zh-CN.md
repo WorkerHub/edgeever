@@ -44,6 +44,8 @@ GitHub 插件的 `entry` 固定为 `./main.js`，`main.js` 必须是无需相对
 
 EdgeEver 会在插件市场页面打开、窗口重新获得焦点及每 30 分钟检查一次更新，但不会静默安装。用户必须点击「更新」并确认；如果新版新增插件权限或网络域名，确认框会明确列出新增访问范围。GitHub 分发的 Release `manifest.json` 必须与默认分支中用于提示更新的 Manifest 完全一致，否则安装会被拒绝。市场安装只跟随 Registry 中已经验证的新版本。
 
+升级采用可回滚切换：新旧版本的包会分别缓存；如果新版无法激活，EdgeEver 会恢复原 Manifest、原启用状态和上一版本代码，而不是留下一个被破坏或被停用的插件。
+
 用户在独立的「插件市场」页面中粘贴以下地址即可自由安装，无需经过官方市场收录：
 
 ```text
@@ -84,7 +86,7 @@ Registry 格式：
 }
 ```
 
-市场安装显示“已验证”，GitHub 或 Manifest 自由安装会明确显示未经验证的来源，但 EdgeEver 不阻止用户安装。卸载插件时会同时删除本机缓存的插件包。
+市场安装显示“已验证”，GitHub 或 Manifest 自由安装会明确显示未经验证的来源，但 EdgeEver 不阻止用户安装。卸载插件时会同时删除本机缓存的全部插件版本、当前工作区的普通插件存储和 Secret Storage。
 
 当前支持以下权限：
 
@@ -93,6 +95,8 @@ Registry 格式：
 - `notes:delete`
 - `metadata:read`
 - `metadata:write`
+- `resources:read`
+- `resources:write`
 - `network`
 - `storage`
 - `secrets`
@@ -138,6 +142,23 @@ export default definePlugin({
 
 每次注册都会返回清理函数。插件停用时，宿主也会自动清理已注册的命令和事件。
 
+### SDK 包
+
+`@edgeever/plugin-api` 是可发布的 ESM 包，包含生成后的 JavaScript 和 TypeScript 声明。在 EdgeEver 仓库中修改公开契约后，需要重新构建：
+
+```sh
+bun run build:plugin-api
+```
+
+维护者可以在不发布的情况下检查最终公开包内容：
+
+```sh
+cd packages/plugin-api
+npm pack --dry-run
+```
+
+构建后的包只包含 `dist/index.js`、`dist/index.d.ts`、README 和包元数据。插件项目应把 SDK 运行时辅助函数一并打入单文件 `main.js`，发布包中不能残留对 `@edgeever/plugin-api` 的运行时导入。
+
 ## 笔记 API
 
 ```ts
@@ -146,14 +167,64 @@ context.notes.get(noteId);
 context.notes.create({ notebookId, title, contentMarkdown, tags });
 context.notes.update(noteId, { title, contentMarkdown, tags });
 context.notes.delete(noteId, { permanent: false });
+context.notes.move([noteId], notebookId);
+context.notes.pin([noteId], true);
+context.notes.restore(noteId);
+context.notes.revisions.list(noteId);
+context.notes.revisions.restore(noteId, revisionId);
 context.notebooks.list();
+context.notebooks.create({ name, parentId });
+context.notebooks.update(notebookId, { name, parentId, sortOrder });
+context.notebooks.delete(notebookId);
 context.tags.list();
 context.tags.rename("old", "new");
 context.tags.delete("unused");
 ```
 
 所有写入都经过 EdgeEver 的共享 Repository 和业务层，包括离线队列与桌面端适配器。插件不能直接访问具体存储实现。
-读取笔记本和标签需要 `metadata:read`，修改标签需要 `metadata:write`。
+`notes.update()` 同时需要 `notes:write` 和 `notes:read`，因为更新流程需要读取当前版本并会返回更新后的完整笔记；这可以避免写权限被间接用于读取笔记正文。
+读取笔记本和标签需要 `metadata:read`，修改笔记本和标签需要 `metadata:write`。
+
+附件使用独立权限，并继续通过 Web/桌面端共用的 Repository 适配器执行：
+
+```ts
+context.resources.list(noteId); // resources:read
+context.resources.upload(noteId, file); // resources:write
+context.resources.rename(resourceId, filename);
+context.resources.delete(resourceId);
+```
+
+订阅 `note.*` 事件需要 `notes:read`，订阅 `tag.changed` 需要 `metadata:read`。同步队列状态事件不包含笔记或元数据，因此无需额外读取权限。
+
+通过 EdgeEver 正常 Repository 层成功完成的笔记和标签变更——无论来自用户操作还是插件操作——都会进入同一条插件事件流。`workspace.synced` 用于报告已完成的 Repository 同步；失败的变更不会发送成功事件。
+
+## 宿主统一渲染的设置
+
+插件可以在 Manifest 中声明设置，由 EdgeEver 在插件详情页统一渲染。目前支持 `text`、`secret`、`number`、`boolean` 和 `select`：
+
+```json
+{
+  "settings": {
+    "fields": [
+      { "key": "endpoint", "type": "text", "label": "API Endpoint", "required": true },
+      { "key": "token", "type": "secret", "label": "API Token", "required": true },
+      { "key": "format", "type": "select", "label": "格式", "default": "md", "options": [
+        { "value": "md", "label": "Markdown" },
+        { "value": "html", "label": "HTML" }
+      ] }
+    ]
+  }
+}
+```
+
+插件通过 `context.settings` 读取校验后的值。Secret 会加密保存在当前设备的 Secret Storage 中，禁止在 Manifest 中声明默认明文，也不会回填到设置表单：
+
+```ts
+const endpoint = await context.settings.get("endpoint");
+const token = await context.settings.get("token");
+await context.settings.set("format", "html");
+await context.settings.remove("token");
+```
 
 ## 插件存储与网络
 

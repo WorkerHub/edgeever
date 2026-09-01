@@ -41,6 +41,7 @@
     "build:android:play:local": "bun --env-file=${EDGE_EVER_ANDROID_ENV_FILE:-$HOME/.config/edgeever/android/signing.env} run build:android:play",
     "dev:site": "bun --cwd apps/site dev",
     "build": "bun run build:web",
+    "build:plugin-api": "bun run --cwd packages/plugin-api build",
     "build:extension": "vite build --config apps/extension/vite.config.ts",
     "build:extension:firefox": "bun run --cwd apps/extension build:firefox",
     "lint:extension:firefox": "bun run --cwd apps/extension lint:firefox",
